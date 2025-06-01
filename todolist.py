@@ -49,8 +49,8 @@ def view_board(board_id):
 def api_get_board(board_id):
     content = shared_boards.get(board_id)
     if content is None:
-        return jsonify({'error': 'Board not found'}), 404
-    return jsonify({'id': board_id, 'content': content})
+        return "404", 404
+    return content, 200
 
 @socketio.on('connect')
 def handle_connect():
