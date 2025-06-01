@@ -1,13 +1,18 @@
-from flask import Flask, render_template_string, request, jsonify
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template_string, request, redirect, url_for
+from flask_socketio import SocketIO, emit, join_room, leave_room
 import json
 import os
 import html
+import uuid
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 
 DATA_FILE = 'todos.json'
+
+# In-memory storage for shared boards
+shared_boards = {}
+
 
 def load_todos():
     if os.path.exists(DATA_FILE):
@@ -26,7 +31,7 @@ todos = load_todos()
 current_list = "default"
 todos.setdefault(current_list, [])
 
-HTML = """
+TODO_HTML = """
 <!doctype html>
 <html>
 <head>
@@ -42,10 +47,7 @@ HTML = """
       padding: 1em;
       justify-content: space-between;
     }
-    .tabs {
-      display: flex;
-      gap: 0.5em;
-    }
+    .tabs { display: flex; gap: 0.5em; }
     .tab {
       background: #444;
       border: none;
@@ -54,10 +56,7 @@ HTML = """
       border-radius: 5px;
       cursor: pointer;
     }
-    .tab.active {
-      background: #fff;
-      color: #333;
-    }
+    .tab.active { background: #fff; color: #333; }
     .add-tab {
       font-size: 1.4em;
       background: #555;
@@ -71,98 +70,62 @@ HTML = """
       justify-content: center;
       cursor: pointer;
     }
-    main { padding: 2em; }
-    .search-box {
-      margin-bottom: 1em;
-    }
+    main { padding: 2em; position: relative; }
+    .search-box { margin-bottom: 1em; }
     .search-box input {
-      flex: 1;
-      width: 97.2%;
-      padding: 0.75em;
-      font-size: 1em;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+      width: 100%; padding: 0.75em; font-size: 1em;
+      border: 1px solid #ccc; border-radius: 6px;
     }
     form {
-      margin-bottom: 1em;
-      display: flex;
-      align-items: center;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      overflow: hidden;
-      # background: #e0fbe0;
+      margin-bottom: 1em; display: flex; align-items: center;
+      border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
     }
     #newtodo {
-      flex: 1;
-      padding: 0.75em;
-      border: none;
-      font-size: 1em;
+      flex: 1; padding: 0.75em; border: none; font-size: 1em;
     }
     .add-btn {
-      width: auto;
-      height: auto;
-      color: #aaa;
-      border: none;
-      font-size: 1.5em;
-      width: 48px;
-      height: 100%;
-      cursor: pointer;
+      color: #aaa; border: none; font-size: 1.5em;
+      width: 48px; height: 100%; cursor: pointer;
     }
-    .add-btn:hover {
-      background: #ddd;
-    }
+    .add-btn:hover { background: #ddd; }
     ul { list-style-type: none; padding: 0; }
     li {
-      margin: 0.5em 0;
-      background: white;
-      padding: 0.5em;
-      border-radius: 5px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      margin: 0.5em 0; background: white; padding: 0.5em;
+      border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex; align-items: center; justify-content: space-between;
       transition: background 0.2s;
     }
-    li:hover {
-      background: #eef;
-      cursor: default;
-    }
-    .todo-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-      flex: 1;
-    }
-    .todo-item input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-    }
-    .todo-text {
-      flex: 1;
-    }
-    .todo-text[contenteditable="true"] {
-      outline: none;
-    }
-    .done {
-      text-decoration: line-through;
-      color: #888;
-    }
+    li:hover { background: #eef; cursor: default; }
+    .todo-item { display: flex; align-items: center; gap: 0.5em; flex: 1; }
+    .todo-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+    .todo-text { flex: 1; }
+    .todo-text[contenteditable="true"] { outline: none; }
+    .done { text-decoration: line-through; color: #888; }
     .delete-btn {
-      background: none;
+      background: none; border: none; cursor: pointer;
+      color: #c00; font-size: 1em; transition: background 0.2s;
+    }
+    .delete-btn:hover { background: #fdd; border-radius: 4px; }
+    .delete-btn::after { content: 'Delete'; font-size: 1.2em; }
+    .new-board-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      font-size: 2em;
+      background: #4CAF50;
+      color: white;
       border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      color: #c00;
-      font-size: 1em;
-      transition: background 0.2s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-    .delete-btn:hover {
-      background: #fdd;
-      border-radius: 4px;
-    }
-    .delete-btn::after {
-      content: 'Delete';
-      font-size: 1.2em;
+    .new-board-btn:hover {
+      background: #45a049;
     }
   </style>
 </head>
@@ -180,8 +143,8 @@ HTML = """
       <button class="add-btn" type="submit" title="Add task">+</button>
     </form>
     <ul id="todolist"></ul>
+    <button class="new-board-btn" onclick="location.href='/board'" title="New Shared Board">+</button>
   </main>
-
   <script>
     const socket = io();
     let currentList = "default";
@@ -276,9 +239,55 @@ HTML = """
 </html>
 """
 
+BOARD_HTML = """
+<!doctype html>
+<html>
+<head>
+  <title>Shared Board</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body { font-family: monospace; margin: 0; padding: 1em; background: #f0f0f0; }
+    textarea {
+      width: 100%; height: 90vh;
+      font-size: 1em; padding: 1em;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="board" placeholder="Start typing..."></textarea>
+  <script>
+    const boardId = window.location.pathname.split("/").pop();
+    const socket = io();
+    const textarea = document.getElementById('board');
+
+    textarea.addEventListener('input', () => {
+      socket.emit('update_shared_board', { id: boardId, content: textarea.value });
+    });
+
+    socket.on('shared_board', content => {
+      textarea.value = content;
+    });
+
+    socket.emit('join_shared_board', boardId);
+  </script>
+</body>
+</html>
+"""
+
 @app.route('/')
 def index():
-    return render_template_string(HTML)
+    return render_template_string(TODO_HTML)
+
+@app.route('/board')
+def create_board():
+    board_id = str(uuid.uuid4())[:8]
+    shared_boards[board_id] = ""
+    return redirect(url_for('view_board', board_id=board_id))
+
+@app.route('/board/<board_id>')
+def view_board(board_id):
+    return render_template_string(BOARD_HTML)
 
 @socketio.on('connect')
 def handle_connect():
@@ -338,5 +347,18 @@ def handle_edit(data):
         save_todos()
         emit('todos', {'todos': todos[name], 'lists': list(todos.keys())}, broadcast=True)
 
+@socketio.on('join_shared_board')
+def join_shared_board(board_id):
+    join_room(board_id)
+    content = shared_boards.get(board_id, "")
+    emit('shared_board', content, room=board_id)
+
+@socketio.on('update_shared_board')
+def update_shared_board(data):
+    board_id = data['id']
+    content = data['content'][:10000]
+    shared_boards[board_id] = content
+    emit('shared_board', content, room=board_id)
+
 if __name__ == '__main__':
-    socketio.run(app, debug=False, host='0.0.0.0')
+    socketio.run(app, debug=True, host='0.0.0.0')
