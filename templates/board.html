@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <title>Shared Board</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body { font-family: monospace; margin: 0; padding: 1em; background: #f0f0f0; }
+    textarea {
+      width: 100%; height: 90vh;
+      font-size: 1em; padding: 1em;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="board" placeholder="Start typing..."></textarea>
+  <script>
+    const boardId = window.location.pathname.split("/").pop();
+    const socket = io();
+    const textarea = document.getElementById('board');
+
+    textarea.addEventListener('input', () => {
+      socket.emit('update_shared_board', { id: boardId, content: textarea.value });
+    });
+
+    socket.on('shared_board', content => {
+      textarea.value = content;
+    });
+
+    socket.emit('join_shared_board', boardId);
+  </script>
+</body>
+</html>
