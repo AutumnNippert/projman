@@ -339,4 +339,4 @@ def handle_edit(data):
         emit('todos', {'todos': todos[name], 'lists': list(todos.keys())}, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0')
+    socketio.run(app, debug=False, host='0.0.0.0')
