@@ -17,7 +17,6 @@ def load_todos():
                 return data
     return {"default": []}
 
-
 def save_todos():
     with open(DATA_FILE, 'w') as f:
         json.dump(todos, f)
@@ -34,10 +33,60 @@ HTML = """
   <title>Realtime Todo List</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 2em; background: #f4f4f9; color: #333; }
-    form, .list-selector { margin-bottom: 1em; }
+    body { font-family: sans-serif; margin: 0; background: #f4f4f9; color: #333; }
+    header {
+      display: flex;
+      align-items: center;
+      background: #333;
+      color: white;
+      padding: 1em;
+      justify-content: space-between;
+    }
+    .tabs {
+      display: flex;
+      gap: 0.5em;
+    }
+    .tab {
+      background: #444;
+      border: none;
+      color: white;
+      padding: 0.5em 1em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: #fff;
+      color: #333;
+    }
+    .add-tab {
+      font-size: 1.4em;
+      background: #555;
+      color: #ddd;
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    main { padding: 2em; }
+    form { margin-bottom: 1em; display: flex; align-items: center; gap: 0.5em; }
     input[type="text"] { padding: 0.5em; width: 200px; }
-    button { padding: 0.5em; margin-left: 0.5em; }
+    .add-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #080;
+      font-size: 1.2em;
+      transition: background 0.2s;
+      padding: 0.5em;
+      border-radius: 4px;
+    }
+    .add-btn:hover {
+      background: #dfd;
+    }
     ul { list-style-type: none; padding: 0; }
     li { margin: 0.5em 0; background: white; padding: 0.5em; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between; }
     .done { text-decoration: line-through; color: #888; }
@@ -60,21 +109,17 @@ HTML = """
   </style>
 </head>
 <body>
-  <h2>Realtime Todo List</h2>
-
-  <div class="list-selector">
-    <label for="list">Select List:</label>
-    <select id="list"></select>
-    <input type="text" id="newlist" placeholder="New list">
-    <button onclick="createList()">Create</button>
-  </div>
-
-  <form id="form">
-    <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
-    <button type="submit">Add</button>
-  </form>
-
-  <ul id="todolist"></ul>
+  <header>
+    <div class="tabs" id="tabbar"></div>
+    <button class="add-tab" title="Create new list" onclick="promptNewList()">+</button>
+  </header>
+  <main>
+    <form id="form">
+      <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
+      <button class="add-btn" type="submit" title="Add task">+</button>
+    </form>
+    <ul id="todolist"></ul>
+  </main>
 
   <script>
     const socket = io();
@@ -104,14 +149,17 @@ HTML = """
         list.appendChild(li);
       });
 
-      const selector = document.getElementById('list');
-      selector.innerHTML = '';
+      const tabbar = document.getElementById('tabbar');
+      tabbar.innerHTML = '';
       lists.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        if (name === currentList) option.selected = true;
-        selector.appendChild(option);
+        const button = document.createElement('button');
+        button.className = 'tab' + (name === currentList ? ' active' : '');
+        button.textContent = name;
+        button.onclick = () => {
+          currentList = name;
+          socket.emit('switch_list', name);
+        };
+        tabbar.appendChild(button);
       });
     }
 
@@ -134,20 +182,13 @@ HTML = """
       socket.emit('remove_todo', { list: currentList, index });
     }
 
-    function createList() {
-      const input = document.getElementById('newlist');
-      const name = input.value.trim();
+    function promptNewList() {
+      const name = prompt("Enter new list name:");
       if (name) {
         currentList = name;
         socket.emit('create_list', name);
-        input.value = '';
       }
     }
-
-    document.getElementById('list').addEventListener('change', (e) => {
-      currentList = e.target.value;
-      socket.emit('switch_list', currentList);
-    });
   </script>
 </body>
 </html>
