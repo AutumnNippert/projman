@@ -72,24 +72,82 @@ HTML = """
       cursor: pointer;
     }
     main { padding: 2em; }
-    form { margin-bottom: 1em; display: flex; align-items: center; gap: 0.5em; }
-    input[type="text"] { padding: 0.5em; width: 200px; }
-    .add-btn {
-      background: none;
+    .search-box {
+      margin-bottom: 1em;
+    }
+    .search-box input {
+      flex: 1;
+      width: 97.2%;
+      padding: 0.75em;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    form {
+      margin-bottom: 1em;
+      display: flex;
+      align-items: center;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+      # background: #e0fbe0;
+    }
+    #newtodo {
+      flex: 1;
+      padding: 0.75em;
       border: none;
+      font-size: 1em;
+    }
+    .add-btn {
+      width: auto;
+      height: auto;
+      color: #aaa;
+      border: none;
+      font-size: 1.5em;
+      width: 48px;
+      height: 100%;
       cursor: pointer;
-      color: #080;
-      font-size: 1.2em;
-      transition: background 0.2s;
-      padding: 0.5em;
-      border-radius: 4px;
     }
     .add-btn:hover {
-      background: #dfd;
+      background: #ddd;
     }
     ul { list-style-type: none; padding: 0; }
-    li { margin: 0.5em 0; background: white; padding: 0.5em; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between; }
-    .done { text-decoration: line-through; color: #888; }
+    li {
+      margin: 0.5em 0;
+      background: white;
+      padding: 0.5em;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.2s;
+    }
+    li:hover {
+      background: #eef;
+      cursor: default;
+    }
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      flex: 1;
+    }
+    .todo-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+    .todo-text {
+      flex: 1;
+    }
+    .todo-text[contenteditable="true"] {
+      outline: none;
+    }
+    .done {
+      text-decoration: line-through;
+      color: #888;
+    }
     .delete-btn {
       background: none;
       border: none;
@@ -103,7 +161,7 @@ HTML = """
       border-radius: 4px;
     }
     .delete-btn::after {
-      content: '\1F5D1';
+      content: 'Delete';
       font-size: 1.2em;
     }
   </style>
@@ -114,6 +172,9 @@ HTML = """
     <button class="add-tab" title="Create new list" onclick="promptNewList()">+</button>
   </header>
   <main>
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search todos..." oninput="filterTodos()">
+    </div>
     <form id="form">
       <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
       <button class="add-btn" type="submit" title="Add task">+</button>
@@ -124,6 +185,7 @@ HTML = """
   <script>
     const socket = io();
     let currentList = "default";
+    let fullTodos = [];
 
     function escapeHTML(str) {
       return str.replace(/&/g, '&amp;')
@@ -134,24 +196,10 @@ HTML = """
     }
 
     function renderTodos(data) {
-      const { todos, lists } = data;
-      const list = document.getElementById('todolist');
-      list.innerHTML = '';
-      todos.forEach((todo, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <span>
-            <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggle(${index})">
-            <span class="${todo.done ? 'done' : ''}">${escapeHTML(todo.text)}</span>
-          </span>
-          <button class="delete-btn" title="Delete task" onclick="remove(${index})"></button>
-        `;
-        list.appendChild(li);
-      });
-
+      fullTodos = data.todos;
       const tabbar = document.getElementById('tabbar');
       tabbar.innerHTML = '';
-      lists.forEach(name => {
+      data.lists.forEach(name => {
         const button = document.createElement('button');
         button.className = 'tab' + (name === currentList ? ' active' : '');
         button.textContent = name;
@@ -161,6 +209,33 @@ HTML = """
         };
         tabbar.appendChild(button);
       });
+      filterTodos();
+    }
+
+    function filterTodos() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const list = document.getElementById('todolist');
+      list.innerHTML = '';
+      fullTodos.forEach((todo, index) => {
+        if (todo.text.toLowerCase().includes(query)) {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <div class="todo-item">
+              <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggle(${index})">
+              <span class="todo-text ${todo.done ? 'done' : ''}" contenteditable="true" onblur="commitEdit(${index}, this)" onkeydown="checkEnter(event)">${escapeHTML(todo.text)}</span>
+            </div>
+            <button class="delete-btn" title="Delete task" onclick="remove(${index})"></button>
+          `;
+          list.appendChild(li);
+        }
+      });
+    }
+
+    function checkEnter(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+      }
     }
 
     socket.on('todos', renderTodos);
@@ -180,6 +255,13 @@ HTML = """
 
     function remove(index) {
       socket.emit('remove_todo', { list: currentList, index });
+    }
+
+    function commitEdit(index, element) {
+      const newText = element.innerText.trim();
+      if (newText) {
+        socket.emit('edit_todo', { list: currentList, index, text: newText });
+      }
     }
 
     function promptNewList() {
@@ -242,6 +324,17 @@ def handle_remove(data):
     index = data['index']
     if 0 <= index < len(todos.get(name, [])):
         todos[name].pop(index)
+        save_todos()
+        emit('todos', {'todos': todos[name], 'lists': list(todos.keys())}, broadcast=True)
+
+@socketio.on('edit_todo')
+def handle_edit(data):
+    name = data['list']
+    index = data['index']
+    text = str(data['text']).strip()[:256]
+    text = html.escape(text)
+    if 0 <= index < len(todos.get(name, [])):
+        todos[name][index]['text'] = text
         save_todos()
         emit('todos', {'todos': todos[name], 'lists': list(todos.keys())}, broadcast=True)
 
