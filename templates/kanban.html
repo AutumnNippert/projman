@@ -4,6 +4,7 @@
 <head>
     <title>Kanban Board</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         body {
             font-family: monospace;
@@ -25,7 +26,6 @@
             position: relative;
             z-index: 20;
             height: 5vh;
-            /* Use a fixed pixel height for consistency */
         }
 
         .titlebar .header-actions {
@@ -40,7 +40,6 @@
             border: none;
             border-radius: 6px;
             padding: 0.5em 1.2em;
-            /* font-size: 1em; */
             cursor: pointer;
             transition: background 0.2s;
             margin: 0;
@@ -54,7 +53,6 @@
         .kanban-container {
             position: absolute;
             top: 60px;
-            /* height of titlebar */
             left: 0;
             right: 0;
             bottom: 0;
@@ -62,13 +60,11 @@
             align-items: stretch;
             overflow: auto;
             background: #f0f0f0;
-            /* Optional: for debugging layout */
         }
 
         .kanban-column {
             flex: 1;
             margin: 1em;
-            /* Only horizontal margin */
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 8px #0001;
@@ -167,26 +163,76 @@
             cursor: pointer;
         }
 
-        /* Only style datetime-local in modal and sidebar */
-        #side-panel input[type="datetime-local"],
-        .modal input[type="datetime-local"] {
-            font-size: 1em;
-            padding: 0.3em 0.5em;
-            border: none;
-            border-bottom: 2px solid #888;
-            background: transparent;
-            color: #222;
-            width: 100%;
-            box-sizing: border-box;
-            outline: none;
-            margin-top: 0.2em;
-            margin-bottom: 0.2em;
+        /* Sidebar minimalist field styling */
+        #side-panel .sp-field {
+            margin-bottom: 1.2em;
         }
 
-        #side-panel input[type="datetime-local"]:focus,
-        .modal input[type="datetime-local"]:focus {
-            border-bottom: 2px solid #333;
-            background: #f5f5f5;
+        #side-panel .sp-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 0.2em;
+            color: #222;
+            letter-spacing: 0.02em;
+        }
+
+        #side-panel .sp-input,
+        #side-panel .sp-select,
+        #side-panel .sp-textarea {
+            width: 100%;
+            font-size: 1em;
+            padding: 0.5em 0.7em;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+            border: none;
+            border-radius: 5px;
+            background: transparent;
+            color: #222;
+            box-sizing: border-box;
+            outline: none;
+            transition: box-shadow 0.2s, border 0.2s;
+            box-shadow: 0 1px 0 0 #0001;
+            /* remove text area resize handle */
+        }
+
+        #side-panel .sp-input:focus,
+        #side-panel .sp-select:focus,
+        #side-panel .sp-textarea:focus {
+            /* background: #fff; */
+            box-shadow: 0 2px 8px #0002;
+            /* border: 1.5px solid #333; */
+        }
+
+        #side-panel .sp-textarea {
+            resize: none;
+            min-height: 70px;
+            max-height: 200px;
+        }
+
+        #side-panel .sp-name {
+            width: 100%;
+            font-size: 1em;
+            padding: 0.5em 0.7em;
+            margin-top: 0.2em;
+            margin-bottom: 1em;
+            border: none;
+            border-radius: 5px;
+            background: transparent;
+            color: #222;
+            box-sizing: border-box;
+            outline: none;
+            transition: box-shadow 0.2s, border 0.2s;
+            box-shadow: 0 1px 0 0 #0001;
+        }
+
+        #side-panel .sp-name:focus {
+            box-shadow: 0 2px 8px #0002;
+        }
+
+        /* Add this to your CSS for the placeholder effect */
+        .kanban-placeholder {
+            pointer-events: none;
+            transition: background 0.2s, border 0.2s;
         }
     </style>
 </head>
@@ -202,8 +248,8 @@
 
     <!-- Side panel for card details -->
     <div id="side-panel">
-        <button onclick="closeSidePanel()"
-            style="position:absolute; top:1em; right:1em; background:none; border:none; font-size:2em; color:#888; cursor:pointer;">&times;</button>
+        <button id="side-panel-close"
+            style="position: fixed; top: 1.3em; right: .15em; background: none; border: none; font-size: 2em; color: #888; cursor: pointer; z-index: 10;">&times;</button>
         <div id="side-panel-content"></div>
     </div>
 
@@ -215,8 +261,6 @@
             { name: "Doing", cards: [] },
             { name: "Done", cards: [] }
         ];
-        let addCardColumnIdx = 0;
-        let editCardCol = null, editCardIdx = null;
         let selectedCardCol = null, selectedCardIdx = null;
         let dragData = null;
         let focusNewColumn = false;
@@ -224,9 +268,8 @@
 
         function addColumn() {
             board.push({ name: "New Column", cards: [] });
-            focusNewColumn = true; // Set BEFORE sync
+            focusNewColumn = true;
             sync();
-            // Do NOT call render() here!
         }
 
         function render() {
@@ -255,8 +298,6 @@
                     removeBtn.innerHTML = '&times;';
                     removeBtn.title = "Remove column";
                     removeBtn.onclick = () => { board.splice(colIdx, 1); sync(); };
-                    //   header.appendChild(removeBtn);
-                    // add to the left side of the header
                     header.insertBefore(removeBtn, nameInput);
                 }
                 column.appendChild(header);
@@ -264,12 +305,70 @@
                 // Card list
                 const list = document.createElement('div');
                 list.className = 'kanban-list';
-                list.ondragover = (e) => e.preventDefault();
+                list.ondragover = (e) => {
+                    e.preventDefault();
+                    // Find all cards in the list
+                    const cards = Array.from(list.children).filter(
+                        el => el.classList && el.classList.contains('kanban-card')
+                    );
+                    let insertIdx = cards.length;
+                    let found = false;
+
+                    // Find where the mouse is relative to each card
+                    for (let i = 0; i < cards.length; ++i) {
+                        const rect = cards[i].getBoundingClientRect();
+                        if (e.clientY < rect.top + rect.height / 2) {
+                            insertIdx = i;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    // Remove existing placeholder if not in the right spot
+                    const children = Array.from(list.children);
+                    const existing = list.querySelector('.kanban-placeholder');
+                    if (!existing || children.indexOf(existing) !== insertIdx) {
+                        removePlaceholders();
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'kanban-placeholder';
+                        placeholder.style.height = '2.5em';
+                        placeholder.style.background = '#e0e0e0';
+                        placeholder.style.borderRadius = '5px';
+                        placeholder.style.marginBottom = '0.5em';
+                        placeholder.style.border = '2px dashed #bbb';
+                        placeholder.style.opacity = '0.7';
+                        if (insertIdx >= list.children.length) {
+                            list.appendChild(placeholder);
+                        } else {
+                            list.insertBefore(placeholder, list.children[insertIdx]);
+                        }
+                    }
+                };
                 list.ondrop = (e) => {
                     e.preventDefault();
+                    const placeholder = list.querySelector('.kanban-placeholder');
+                    let insertIdx = col.cards.length;
+                    if (placeholder) {
+                        // Find the index where the placeholder is
+                        const children = Array.from(list.children);
+                        insertIdx = children.indexOf(placeholder);
+                    }
+                    removePlaceholders();
                     if (!dragData) return;
-                    moveCard(dragData.colIdx, dragData.cardIdx, colIdx, col.cards.length);
+                    moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
                     dragData = null;
+                };
+                list.ondragleave = (e) => {
+                    // Only remove if leaving the list, not entering a child
+                    if (!list.contains(e.relatedTarget)) {
+                        removePlaceholders();
+                    }
+                };
+                list.onclick = function(e) {
+                    // Only close if clicking directly on the list (not a card or its children)
+                    if (e.target === list) {
+                        closeSidePanel();
+                    }
                 };
 
                 col.cards.forEach((card, cardIdx) => {
@@ -279,9 +378,9 @@
                     div.draggable = true;
                     div.tabIndex = 0;
 
-                    // Card click: show side panel
                     div.onclick = (e) => {
-                        if (e.target.classList.contains('edit-icon')) return; // Don't trigger on edit icon
+                        if (e.target.classList.contains('trash-icon')) return;
+                        focusSidePanelName = false;
                         showSidePanel(colIdx, cardIdx);
                     };
 
@@ -296,15 +395,17 @@
                     nameSpan.style.fontWeight = "bold";
                     cardMain.appendChild(nameSpan);
 
-                    // Modern SVG pencil icon
-                    const pencil = document.createElement('span');
-                    pencil.innerHTML = `<svg class="edit-icon" width="28" height="28" viewBox="0 0 24 24" style="vertical-align:middle;cursor:pointer;fill:#555;"><path d="M3 17.25V21h3.75l11.06-11.06-3.75-3.75L3 17.25zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
-                    pencil.title = "Edit card";
-                    pencil.onclick = (e) => {
+                    // Trash icon (modern/minimalist, lighter red)
+                    const trash = document.createElement('span');
+                    trash.innerHTML = `<i class="fa-regular fa-trash-can" style="color:#ef5350; font-size: 1.3em; cursor:pointer;"></i>`;
+                    trash.title = "Delete card";
+                    trash.onclick = (e) => {
                         e.stopPropagation();
-                        showEditModal(colIdx, cardIdx);
+                        board[colIdx].cards.splice(cardIdx, 1);
+                        sync();
+                        render();
                     };
-                    cardMain.appendChild(pencil);
+                    cardMain.appendChild(trash);
 
                     div.appendChild(cardMain);
 
@@ -326,7 +427,6 @@
                     }
                     if (card.weight || card.due) div.appendChild(details);
 
-                    // Tooltip for description
                     div.title = card.desc || "";
 
                     // Drag logic
@@ -338,14 +438,58 @@
                     div.ondragend = (e) => {
                         dragData = null;
                         div.classList.remove('dragging');
+                        removePlaceholders();
                     };
-                    div.ondragover = (e) => { e.preventDefault(); div.style.borderTop = "2px solid #333"; };
-                    div.ondragleave = (e) => { div.style.borderTop = ""; };
+                    div.ondragover = (e) => {
+                        e.preventDefault();
+                        const rect = div.getBoundingClientRect();
+                        const offset = e.clientY - rect.top;
+                        let insertBefore = offset < rect.height / 2;
+
+                        // Find the current placeholder and its position
+                        const siblings = Array.from(div.parentNode.children);
+                        const existing = siblings.find(el => el.classList && el.classList.contains('kanban-placeholder'));
+
+                        // Determine where the placeholder should be
+                        let shouldBeBefore = insertBefore ? div : div.nextSibling;
+
+                        // Only move the placeholder if it's not already in the right place
+                        if (!existing || existing !== shouldBeBefore) {
+                            removePlaceholders();
+                            let placeholder = document.createElement('div');
+                            placeholder.className = 'kanban-placeholder';
+                            placeholder.style.height = '2.5em';
+                            placeholder.style.background = '#e0e0e0';
+                            placeholder.style.borderRadius = '5px';
+                            placeholder.style.marginBottom = '0.5em';
+                            placeholder.style.border = '2px dashed #bbb';
+                            placeholder.style.opacity = '0.7';
+                            if (insertBefore) {
+                                div.parentNode.insertBefore(placeholder, div);
+                            } else {
+                                if (div.nextSibling) {
+                                    div.parentNode.insertBefore(placeholder, div.nextSibling);
+                                } else {
+                                    div.parentNode.appendChild(placeholder);
+                                }
+                            }
+                        }
+                    };
+                    div.ondragleave = (e) => {
+                        // Only remove if leaving the card, not entering a child
+                        if (!div.contains(e.relatedTarget)) {
+                            removePlaceholders();
+                        }
+                    };
                     div.ondrop = (e) => {
                         e.preventDefault();
-                        div.style.borderTop = "";
+                        removePlaceholders();
                         if (!dragData) return;
-                        moveCard(dragData.colIdx, dragData.cardIdx, colIdx, cardIdx);
+                        const rect = div.getBoundingClientRect();
+                        const offset = e.clientY - rect.top;
+                        let insertIdx = cardIdx;
+                        if (offset >= rect.height / 2) insertIdx++;
+                        moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
                         dragData = null;
                     };
 
@@ -359,24 +503,19 @@
                 addBtn.className = 'kanban-add';
                 addBtn.textContent = "+";
                 addBtn.onclick = () => {
-                    // Create a new card with empty fields
                     const newCard = { name: "", weight: "", desc: "", due: "" };
                     board[colIdx].cards.push(newCard);
                     sync();
-                    render();
                     focusSidePanelName = true;
-                    showSidePanel(colIdx, board[colIdx].cards.length - 1, true); // true for focus
+                    showSidePanel(colIdx, board[colIdx].cards.length - 1, true);
                 };
-                // column.appendChild(addBtn);
-                // add to the header instead
                 header.appendChild(addBtn);
 
                 kanban.appendChild(column);
             });
 
-            // --- Fix: Update side panel if open and a card is selected ---
+            // Update side panel if open and a card is selected
             if (selectedCardCol !== null && selectedCardIdx !== null) {
-                // Find the card object reference
                 let found = false;
                 const cardRef = board[selectedCardCol] && board[selectedCardCol].cards[selectedCardIdx];
                 if (cardRef) {
@@ -395,7 +534,6 @@
                 if (found) {
                     showSidePanel(selectedCardCol, selectedCardIdx);
                 } else {
-                    // Card was deleted
                     closeSidePanel();
                 }
             }
@@ -420,7 +558,6 @@
             }
         }
 
-        // Move card from one position to another (can be same or different column)
         function moveCard(fromCol, fromIdx, toCol, toIdx) {
             if (fromCol === toCol && fromIdx === toIdx) return;
             const card = board[fromCol].cards[fromIdx];
@@ -430,7 +567,6 @@
             sync();
         }
 
-        // Side panel logic
         function showSidePanel(colIdx, cardIdx, focusFirst = false) {
             selectedCardCol = colIdx;
             selectedCardIdx = cardIdx;
@@ -438,57 +574,130 @@
             const panel = document.getElementById('side-panel');
             const content = document.getElementById('side-panel-content');
 
-            function renderField(label, value, field, type = "text", tabIndex = 1) {
+            function renderField(label, value, field, type = "text") {
                 const id = `sp-${field}`;
-                const isEditing = showSidePanel.editing === field;
-                const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
-                let html = `<div style="margin-bottom:1.2em;">`;
-                html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">${label}</label>`;
-                if (isEditing) {
-                    if (type === "textarea") {
-                        html += `<textarea id="${id}" tabindex="${tabIndex}" style="${sharedStyle}min-height:4em;border:none;border-bottom:2px solid #888;resize:vertical;">${value || ""}</textarea>`;
-                    } else {
-                        html += `<input id="${id}" tabindex="${tabIndex}" type="${type}" value="${value || ""}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
-                    }
-                } else {
-                    html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('${field}', event)">${value ? (type === "datetime-local" ? value.replace("T", " ") : value) : "<span style='color:#aaa'>(none)</span>"}</span>`;
-                }
-                html += `</div>`;
-                return html;
-            }
-
-            // Column dropdown logic
-            function renderColumnField() {
-                const id = `sp-column`;
-                const isEditing = showSidePanel.editing === "column";
-                const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
-                let html = `<div style="margin-bottom:1.2em;">`;
-                html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">Column</label>`;
-                if (isEditing) {
-                    html += `<select id="${id}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
-                    board.forEach((col, idx) => {
-                        html += `<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`;
-                    });
-                    html += `</select>`;
-                } else {
-                    html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('column', event)">${board[colIdx].name}</span>`;
-                }
-                html += `</div>`;
-                return html;
-            }
-
-            content.innerHTML = `
-            <div style="font-size:1.3em;font-weight:bold;margin-bottom:1.2em;">${card.name || "(No name)"}</div>
-            ${renderField("Name", card.name, "name", "text", 1)}
-            ${renderColumnField()}
-            ${renderField("Weight", card.weight, "weight", "number", 2)}
-            ${renderField("Due", card.due, "due", "datetime-local", 3)}
-            ${renderField("Description", card.desc, "desc", "textarea", 4)}
+                if (type === "textarea") {
+                    return `
+                <div class="sp-field">
+                    <label for="${id}" class="sp-label">${label}</label>
+                    <textarea id="${id}" class="sp-textarea" rows="3" placeholder="Enter ${label.toLowerCase()}">${value || ""}</textarea>
+                </div>
             `;
+                } else {
+                    return `
+                <div class="sp-field">
+                    <label for="${id}" class="sp-label">${label}</label>
+                    <input id="${id}" class="sp-input" type="${type}" value="${value || ""}" placeholder="Enter ${label.toLowerCase()}" />
+                </div>
+            `;
+                }
+            }
+
+            function renderColumnField() {
+                let options = board.map((col, idx) =>
+                    `<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`
+                ).join("");
+                return `
+            <div class="sp-field">
+                <label for="sp-column" class="sp-label">Column</label>
+                <select id="sp-column" class="sp-select">${options}</select>
+            </div>
+        `;
+            }
+
+            // Only one editable name field at the top, styled big
+            content.innerHTML = `
+        <input id="sp-name" type="text"
+            value="${card.name || ""}"
+            placeholder="Card name"
+            class="sp-name"
+        />
+        ${renderColumnField()}
+        ${renderField("Weight", card.weight, "weight", "number")}
+        ${renderField("Due", card.due, "due", "datetime-local")}
+        ${renderField("Description", card.desc, "desc", "textarea")}
+    `;
 
             panel.style.display = "block";
 
-            // Focus the first field if requested or if the flag is set
+            // Live update on blur/change for all fields
+            document.getElementById('sp-name').oninput = function () {
+                card.name = this.value;
+                sync();
+            };
+            document.getElementById('sp-name').onkeydown = function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    const next = document.getElementById('sp-column');
+                    if (next) next.focus();
+                }
+            };
+
+            document.getElementById('sp-column').oninput = function () {
+                const newColIdx = parseInt(this.value);
+                if (newColIdx !== colIdx) {
+                    board[colIdx].cards.splice(cardIdx, 1);
+                    board[newColIdx].cards.push(card);
+                    selectedCardCol = newColIdx;
+                    selectedCardIdx = board[newColIdx].cards.length - 1;
+                    sync();
+                    render();
+                    showSidePanel(selectedCardCol, selectedCardIdx);
+                }
+            };
+            document.getElementById('sp-column').onkeydown = function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    const next = document.getElementById('sp-weight');
+                    if (next) next.focus();
+                }
+            };
+
+            document.getElementById('sp-weight').oninput = function () {
+                card.weight = this.value;
+                sync();
+            };
+            document.getElementById('sp-weight').onkeydown = function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    const next = document.getElementById('sp-due');
+                    if (next) next.focus();
+                }
+            };
+
+            document.getElementById('sp-due').oninput = function () {
+                card.due = this.value;
+                sync();
+            };
+            document.getElementById('sp-due').onkeydown = function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    const next = document.getElementById('sp-desc');
+                    if (next) next.focus();
+                }
+            };
+
+            document.getElementById('sp-desc').oninput = function () {
+                card.desc = this.value;
+                sync();
+            };
+            document.getElementById('sp-desc').onkeydown = function (e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                }
+            };
+
+            // Delete on empty name and blur (optional: uncomment if you want this behavior)
+            // document.getElementById('sp-name').addEventListener('blur', function() {
+            //     if (!this.value.trim()) {
+            //         board[colIdx].cards.splice(cardIdx, 1);
+            //         sync();
+            //         closeSidePanel();
+            //         render();
+            //     }
+            // });
+
+            // Focus the name field when opening the sidebar for a new card
             if (focusFirst || focusSidePanelName) {
                 focusSidePanelName = false;
                 setTimeout(() => {
@@ -499,120 +708,17 @@
                     }
                 }, 0);
             }
-
-            // Tab/Enter navigation for sidebar fields
-            const fieldOrder = ['sp-name', 'sp-weight', 'sp-due', 'sp-desc'];
-            fieldOrder.forEach((id, idx) => {
-                const input = document.getElementById(id);
-                if (input) {
-                    input.onkeydown = function (e) {
-                        // Tab or Enter (except textarea) moves to next field
-                        if ((e.key === "Tab") || (e.key === "Enter" && input.tagName !== "TEXTAREA")) {
-                            e.preventDefault();
-                            let nextIdx = idx + (e.shiftKey ? -1 : 1);
-                            if (nextIdx >= 0 && nextIdx < fieldOrder.length) {
-                                const nextInput = document.getElementById(fieldOrder[nextIdx]);
-                                if (nextInput) {
-                                    nextInput.focus();
-                                    nextInput.select && nextInput.select();
-                                }
-                            }
-                        }
-                        // Escape closes sidebar
-                        if (e.key === "Escape") {
-                            closeSidePanel();
-                        }
-                    };
-                }
-            });
-
-            // Attach input handlers if editing
-            ["name", "weight", "due", "desc"].forEach(field => {
-                const id = `sp-${field}`;
-                if (showSidePanel.editing === field) {
-                    const input = document.getElementById(id);
-                    if (input) {
-                        input.focus();
-                        input.select && input.select();
-                        // Save and exit edit mode on blur or Enter
-                        input.onblur = saveEdit;
-                        input.onkeydown = function (e) {
-                            if (e.key === "Enter" && field !== "desc") {
-                                e.preventDefault();
-                                input.blur();
-                            }
-                        };
-                        function saveEdit() {
-                            let val = input.value;
-                            if (field === "weight") val = val.replace(/[^\d.]/g, '');
-                            card[field] = val;
-                            showSidePanel.editing = null;
-                            sync();
-                            render();
-                            showSidePanel(colIdx, cardIdx);
-                        }
-                    }
-                }
-            });
-
-            // Column dropdown handler
-            if (showSidePanel.editing === "column") {
-                const select = document.getElementById('sp-column');
-                if (select) {
-                    select.focus();
-                    select.onblur = saveColumnEdit;
-                    select.onchange = saveColumnEdit;
-                    function saveColumnEdit() {
-                        const newColIdx = parseInt(select.value);
-                        if (newColIdx !== colIdx) {
-                            // Move card to new column
-                            board[newColIdx].cards.push(card);
-                            board[colIdx].cards.splice(cardIdx, 1);
-                            showSidePanel.editing = null;
-                            sync();
-                            render();
-                            // Show the card in its new column
-                            showSidePanel(newColIdx, board[newColIdx].cards.length - 1);
-                        } else {
-                            showSidePanel.editing = null;
-                            showSidePanel(colIdx, cardIdx);
-                        }
-                    }
-                }
-            }
         }
-        showSidePanel.editing = null;
 
-        // Called by clicking the value
         window.editSidePanelField = function (field, event) {
-            // Instantly switch to new field, even if another is being edited
-            showSidePanel.editing = field;
-            showSidePanel(selectedCardCol, selectedCardIdx);
+            // You can implement inline editing here if needed
             if (event) event.stopPropagation();
         };
+
         function closeSidePanel() {
             document.getElementById('side-panel').style.display = "none";
             selectedCardCol = null;
             selectedCardIdx = null;
-        }
-
-        function addColumn() {
-            board.push({ name: "New Column", cards: [] });
-            focusNewColumn = true; // Set BEFORE sync
-            sync();
-            // Do NOT call render() here!
-        }
-
-        function saveEdit() {
-            const card = board[editCardCol].cards[editCardIdx];
-            card.name = document.getElementById('edit-name').value.trim();
-            card.weight = document.getElementById('edit-weight').value.trim();
-            card.desc = document.getElementById('edit-desc').value.trim();
-            card.due = document.getElementById('edit-due').value;
-            sync();
-            hideEditModal();
-            // If side panel is open for this card, update it
-            if (selectedCardCol === editCardCol && selectedCardIdx === editCardIdx) showSidePanel(editCardCol, editCardIdx);
         }
 
         function sync() {
@@ -620,6 +726,18 @@
         }
 
         socket.on('kanban_update', data => {
+            // Save currently selected card (if any)
+            let prevCol = selectedCardCol;
+            let prevIdx = selectedCardIdx;
+        
+            // Save sidebar focus state
+            let activeField = document.activeElement && document.activeElement.id;
+            let selectionStart = null, selectionEnd = null;
+            if (activeField && activeField.startsWith('sp-')) {
+                selectionStart = document.activeElement.selectionStart;
+                selectionEnd = document.activeElement.selectionEnd;
+            }
+        
             if (Array.isArray(data)) {
                 board = data;
             } else if (typeof data === "object" && data.todo && data.doing && data.done) {
@@ -629,19 +747,59 @@
                     { name: "Done", cards: data.done.map(n => ({ name: n, weight: "", desc: "", due: "" })) }
                 ];
             }
-            // Don't reset focusNewColumn here! Let render() handle it.
+        
             render();
+        
+            // Restore sidebar if the card still exists
+            if (
+                prevCol !== null &&
+                prevIdx !== null &&
+                board[prevCol] &&
+                board[prevCol].cards[prevIdx]
+            ) {
+                showSidePanel(prevCol, prevIdx);
+        
+                // Restore focus and cursor position
+                if (activeField && document.getElementById(activeField)) {
+                    const el = document.getElementById(activeField);
+                    el.focus();
+                    if (selectionStart !== null && selectionEnd !== null && el.setSelectionRange) {
+                        el.setSelectionRange(selectionStart, selectionEnd);
+                    }
+                }
+            }
         });
-
         socket.emit('join_kanban', boardId);
         render();
 
         document.addEventListener('keydown', function (e) {
-            // Only close sidebar if it's open and not in a modal
             const panel = document.getElementById('side-panel');
             if (panel && panel.style.display === "block" && e.key === "Escape") {
                 closeSidePanel();
             }
+        });
+
+        // Move the close button logic to use the new id
+        document.getElementById('side-panel-close').onclick = closeSidePanel;
+
+        // Helper to remove all placeholders
+        function removePlaceholders() {
+            document.querySelectorAll('.kanban-placeholder').forEach(el => el.remove());
+        }
+
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('side-panel');
+            // If sidebar is not open, do nothing
+            if (!sidebar || sidebar.style.display !== "block") return;
+
+            // If click is inside the sidebar, do nothing
+            if (sidebar.contains(e.target)) return;
+
+            // If click is inside a kanban card, do nothing (let card logic handle it)
+            if (e.target.closest('.kanban-card')) return;
+
+            // Otherwise, close the sidebar
+            closeSidePanel();
         });
     </script>
 </body>
