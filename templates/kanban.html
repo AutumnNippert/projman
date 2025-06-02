@@ -1,659 +1,649 @@
 <!doctype html>
 <html>
+
 <head>
-  <title>Kanban Board</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
-  <style>
-    body { font-family: monospace; margin: 0; background: #f0f0f0; }
-    .titlebar {
-      background: #333;
-      color: white;
-      padding: 0.7em 1.5em;
-      font-size: 1.2em;
-      font-weight: bold;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 8px #0002;
-      position: relative;
-      z-index: 20;
-      height: 52px; /* Use a fixed pixel height for consistency */
-    }
-    .titlebar .header-actions {
-      display: flex;
-      gap: 0.7em;
-      align-items: center;
-    }
-    .add-column-btn {
-      background: #444;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5em 1.2em;
-      font-size: 1em;
-      cursor: pointer;
-      transition: background 0.2s;
-      margin: 0;
-      box-shadow: 0 1px 3px #0001;
-    }
-    .add-column-btn:hover {
-      background: #666;
-    }
-    .kanban-container {
-      display: flex;
-      height: calc(100vh - 52px); /* Match the titlebar height */
-      align-items: stretch;
-      position: relative;
-      overflow: hidden;
-      /* Remove vertical padding! */
-    }
-    .kanban-column {
-      flex: 1;
-      margin: 0 1em; /* Only horizontal margin */
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px #0001;
-      display: flex;
-      flex-direction: column;
-      min-width: 220px;
-      max-width: 320px;
-      position: relative;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-    .kanban-header {
-      padding: 1em;
-      font-weight: bold;
-      background: #eee;
-      border-radius: 8px 8px 0 0;
-      text-align: center;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .kanban-header input {
-      font-size: 1em;
-      border: none;
-      background: transparent;
-      width: 80%;
-      text-align: center;
-    }
-    .kanban-list {
-      flex: 1;
-      min-height: 0;
-      padding: 1em;
-      overflow-y: auto;
-    }
-    .kanban-card {
-      background: #f9f9f9;
-      margin-bottom: 0.5em;
-      padding: 0.75em;
-      border-radius: 5px;
-      box-shadow: 0 1px 3px #0002;
-      cursor: grab;
-      user-select: none;
-      outline: none;
-    }
-    .kanban-add {
-      border: none;
-      background: #e0e0e0;
-      padding: 0.5em;
-      border-radius: 5px;
-      margin: 1em;
-      cursor: pointer;
-    }
-    /* Modal styles */
-    .modal-bg {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.3);
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-    .modal-bg.active { display: flex; }
-    .modal {
-      background: #fff;
-      padding: 2em;
-      border-radius: 8px;
-      box-shadow: 0 4px 24px #0003;
-      min-width: 300px;
-      display: flex;
-      flex-direction: column;
-      gap: 1em;
-    }
-    .modal input, .modal textarea {
-      font-size: 1.1em;
-      padding: 0.5em;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .modal button {
-      font-size: 1em;
-      padding: 0.5em 1em;
-      border-radius: 5px;
-      border: none;
-      background: #333;
-      color: #fff;
-      cursor: pointer;
-    }
-    .remove-column-btn {
-      background: none;
-      border: none;
-      color: #c00;
-      font-size: 1.2em;
-      cursor: pointer;
-      margin-left: 0.5em;
-    }
-    .remove-column-btn:hover {
-      color: #f33;
-    }
+    <title>Kanban Board</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 0;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
 
-    /* Side panel styles */
-    #side-panel {
-      display: none;
-      position: fixed;
-      top: 52px; /* Match the .titlebar height */
-      right: 0;
-      width: 320px;
-      height: calc(100vh - 52px); /* Fill below the top bar */
-      background: #fff;
-      box-shadow: -2px 0 12px #0002;
-      z-index: 200;
-      padding: 2em 1.5em 1em 1.5em;
-      overflow-y: auto;
-      box-sizing: border-box;
-      /* Optional: border to see where it starts */
-      /* border-top: 2px solid #333; */
-    }
-    #side-panel h2 {
-      margin-top: 0;
-    }
-    #side-panel button {
-      background: #333;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      padding: 0.5em 1em;
-      font-size: 1em;
-      cursor: pointer;
-    }
-    /* Only style datetime-local in modal and sidebar */
-    #side-panel input[type="datetime-local"],
-.modal input[type="datetime-local"] {
-  font-size: 1em;
-  padding: 0.3em 0.5em;
-  border: none;
-  border-bottom: 2px solid #888;
-  background: transparent;
-  color: #222;
-  width: 100%;
-  box-sizing: border-box;
-  outline: none;
-  margin-top: 0.2em;
-  margin-bottom: 0.2em;
-}
-#side-panel input[type="datetime-local"]:focus,
-.modal input[type="datetime-local"]:focus {
-  border-bottom: 2px solid #333;
-  background: #f5f5f5;
-}
-  </style>
+        .titlebar {
+            background: #333;
+            color: white;
+            padding: 0.7em 1.5em;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px #0002;
+            position: relative;
+            z-index: 20;
+            height: 5vh;
+            /* Use a fixed pixel height for consistency */
+        }
+
+        .titlebar .header-actions {
+            display: flex;
+            gap: 0.7em;
+            align-items: center;
+        }
+
+        .add-column-btn {
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5em 1.2em;
+            /* font-size: 1em; */
+            cursor: pointer;
+            transition: background 0.2s;
+            margin: 0;
+            box-shadow: 0 1px 3px #0001;
+        }
+
+        .add-column-btn:hover {
+            background: #666;
+        }
+
+        .kanban-container {
+            position: absolute;
+            top: 60px;
+            /* height of titlebar */
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: stretch;
+            overflow: auto;
+            background: #f0f0f0;
+            /* Optional: for debugging layout */
+        }
+
+        .kanban-column {
+            flex: 1;
+            margin: 1em;
+            /* Only horizontal margin */
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #0001;
+            display: flex;
+            flex-direction: column;
+            min-width: calc(100vw/6 - 2em);
+            max-width: calc(100vw/3 - 2em);
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .kanban-header {
+            padding: 1em;
+            font-weight: bold;
+            background: #ddd;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kanban-header input {
+            font-size: 1em;
+            border: none;
+            background: transparent;
+            width: 80%;
+            text-align: center;
+        }
+
+        .kanban-list {
+            flex: 1;
+            min-height: 0;
+            padding: 1em;
+            overflow-y: auto;
+        }
+
+        .kanban-card {
+            background: #f9f9f9;
+            margin-bottom: 0.5em;
+            padding: 0.75em;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px #0002;
+            cursor: grab;
+            user-select: none;
+            outline: none;
+        }
+
+        .kanban-add {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-right: 0.5em;
+        }
+
+        .remove-column-btn {
+            background: none;
+            border: none;
+            color: #c00;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-left: 0.5em;
+        }
+
+        .remove-column-btn:hover {
+            color: #f33;
+        }
+
+        #side-panel {
+            display: none;
+            position: fixed;
+            right: 0;
+            width: 320px;
+            height: calc(94vh);
+            background: #fff;
+            box-shadow: -2px 0 12px #0002;
+            z-index: 200;
+            padding: 2em 1.5em 1em 1.5em;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        #side-panel h2 {
+            margin-top: 0;
+        }
+
+        #side-panel button {
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 0.5em 1em;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        /* Only style datetime-local in modal and sidebar */
+        #side-panel input[type="datetime-local"],
+        .modal input[type="datetime-local"] {
+            font-size: 1em;
+            padding: 0.3em 0.5em;
+            border: none;
+            border-bottom: 2px solid #888;
+            background: transparent;
+            color: #222;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+        }
+
+        #side-panel input[type="datetime-local"]:focus,
+        .modal input[type="datetime-local"]:focus {
+            border-bottom: 2px solid #333;
+            background: #f5f5f5;
+        }
+    </style>
 </head>
+
 <body>
-  <div class="titlebar">
-    <span>Kanban Board</span>
-    <div class="header-actions">
-      <button class="add-column-btn" onclick="showColumnModal()">+ Add Column</button>
+    <div class="titlebar">
+        <span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
+        <div class="header-actions">
+            <button class="add-column-btn" onclick="addColumn()">+ Add Column</button>
+        </div>
     </div>
-  </div>
-  <div class="kanban-container" id="kanban"></div>
+    <div class="kanban-container" id="kanban"></div>
 
-  <!-- Modal for adding cards -->
-  <div class="modal-bg" id="modal-bg">
-    <div class="modal">
-      <div id="modal-title">Add Card</div>
-      <input type="text" id="modal-input" placeholder="Card text">
-      <div style="display: flex; gap: 1em;">
-        <button onclick="addCardToColumn()">Add</button>
-        <button onclick="hideModal()">Cancel</button>
-      </div>
+    <!-- Side panel for card details -->
+    <div id="side-panel">
+        <button onclick="closeSidePanel()"
+            style="position:absolute; top:1em; right:1em; background:none; border:none; font-size:2em; color:#888; cursor:pointer;">&times;</button>
+        <div id="side-panel-content"></div>
     </div>
-  </div>
-  <!-- Modal for adding columns -->
-  <div class="modal-bg" id="column-modal-bg">
-    <div class="modal">
-      <div>Add Column</div>
-      <input type="text" id="column-modal-input" placeholder="Column name">
-      <div style="display: flex; gap: 1em;">
-        <button onclick="addColumn()">Add</button>
-        <button onclick="hideColumnModal()">Cancel</button>
-      </div>
-    </div>
-  </div>
-  <!-- Modal for editing cards -->
-  <div class="modal-bg" id="edit-modal-bg">
-    <div class="modal">
-      <div>Edit Card</div>
-      <input type="text" id="edit-name" placeholder="Name">
-      <input type="number" id="edit-weight" placeholder="Weight" min="0" step="1">
-      <textarea id="edit-desc" placeholder="Description"></textarea>
-      <input type="datetime-local" id="edit-due">
-      <div style="display: flex; gap: 1em;">
-        <button onclick="saveEdit()">Save</button>
-        <button onclick="hideEditModal()">Cancel</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Side panel for card details -->
-  <div id="side-panel">
-    <button onclick="closeSidePanel()" style="position:absolute; top:1em; right:1em; background:none; border:none; font-size:2em; color:#888; cursor:pointer;">&times;</button>
-    <div id="side-panel-content"></div>
-  </div>
+    <script>
+        const boardId = window.location.pathname.split("/").pop();
+        const socket = io();
+        let board = [
+            { name: "To Do", cards: [] },
+            { name: "Doing", cards: [] },
+            { name: "Done", cards: [] }
+        ];
+        let addCardColumnIdx = 0;
+        let editCardCol = null, editCardIdx = null;
+        let selectedCardCol = null, selectedCardIdx = null;
+        let dragData = null;
+        let focusNewColumn = false;
+        let focusSidePanelName = false;
 
-  <script>
-const boardId = window.location.pathname.split("/").pop();
-const socket = io();
-let board = [
-  { name: "To Do", cards: [] },
-  { name: "Doing", cards: [] },
-  { name: "Done", cards: [] }
-];
-let addCardColumnIdx = 0;
-let editCardCol = null, editCardIdx = null;
-let selectedCardCol = null, selectedCardIdx = null;
-let dragData = null;
-
-function render() {
-  const kanban = document.getElementById('kanban');
-  kanban.innerHTML = '';
-  board.forEach((col, colIdx) => {
-    const column = document.createElement('div');
-    column.className = 'kanban-column';
-    column.dataset.col = colIdx;
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'kanban-header';
-    const nameInput = document.createElement('input');
-    nameInput.value = col.name;
-    nameInput.onblur = () => {
-      board[colIdx].name = nameInput.value.trim() || "Untitled";
-      sync();
-    };
-    nameInput.onkeydown = (e) => { if (e.key === "Enter") nameInput.blur(); };
-    header.appendChild(nameInput);
-
-    if (board.length > 1) {
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'remove-column-btn';
-      removeBtn.innerHTML = '&times;';
-      removeBtn.title = "Remove column";
-      removeBtn.onclick = () => { board.splice(colIdx, 1); sync(); };
-      header.appendChild(removeBtn);
-    }
-    column.appendChild(header);
-
-    // Card list
-    const list = document.createElement('div');
-    list.className = 'kanban-list';
-    list.ondragover = (e) => e.preventDefault();
-    list.ondrop = (e) => {
-      e.preventDefault();
-      if (!dragData) return;
-      moveCard(dragData.colIdx, dragData.cardIdx, colIdx, col.cards.length);
-      dragData = null;
-    };
-
-    col.cards.forEach((card, cardIdx) => {
-      if (typeof card === "string") card = board[colIdx].cards[cardIdx] = { name: card, weight: "", desc: "", due: "" };
-      const div = document.createElement('div');
-      div.className = 'kanban-card';
-      div.draggable = true;
-      div.tabIndex = 0;
-
-      // Card click: show side panel
-      div.onclick = (e) => {
-        if (e.target.classList.contains('edit-icon')) return; // Don't trigger on edit icon
-        showSidePanel(colIdx, cardIdx);
-      };
-
-      // Card main info
-      const cardMain = document.createElement('div');
-      cardMain.style.display = "flex";
-      cardMain.style.justifyContent = "space-between";
-      cardMain.style.alignItems = "center";
-
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = card.name || "(No name)";
-      nameSpan.style.fontWeight = "bold";
-      cardMain.appendChild(nameSpan);
-
-      // Modern SVG pencil icon
-      const pencil = document.createElement('span');
-      pencil.innerHTML = `<svg class="edit-icon" width="28" height="28" viewBox="0 0 24 24" style="vertical-align:middle;cursor:pointer;fill:#555;"><path d="M3 17.25V21h3.75l11.06-11.06-3.75-3.75L3 17.25zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
-      pencil.title = "Edit card";
-      pencil.onclick = (e) => {
-        e.stopPropagation();
-        showEditModal(colIdx, cardIdx);
-      };
-      cardMain.appendChild(pencil);
-
-      div.appendChild(cardMain);
-
-      // Card details (weight, due)
-      const details = document.createElement('div');
-      details.style.fontSize = "0.95em";
-      details.style.color = "#666";
-      details.style.marginTop = "0.3em";
-      if (card.weight) {
-        const w = document.createElement('span');
-        w.textContent = "⚖️ " + card.weight;
-        w.style.marginRight = "0.7em";
-        details.appendChild(w);
-      }
-      if (card.due) {
-        const d = document.createElement('span');
-        d.textContent = "⏰ " + (card.due.length > 16 ? card.due.replace("T", " ") : card.due);
-        details.appendChild(d);
-      }
-      if (card.weight || card.due) div.appendChild(details);
-
-      // Tooltip for description
-      div.title = card.desc || "";
-
-      // Drag logic
-      div.ondragstart = (e) => {
-        dragData = { colIdx, cardIdx };
-        e.dataTransfer.effectAllowed = "move";
-        setTimeout(() => div.classList.add('dragging'), 0);
-      };
-      div.ondragend = (e) => {
-        dragData = null;
-        div.classList.remove('dragging');
-      };
-      div.ondragover = (e) => { e.preventDefault(); div.style.borderTop = "2px solid #333"; };
-      div.ondragleave = (e) => { div.style.borderTop = ""; };
-      div.ondrop = (e) => {
-        e.preventDefault();
-        div.style.borderTop = "";
-        if (!dragData) return;
-        moveCard(dragData.colIdx, dragData.cardIdx, colIdx, cardIdx);
-        dragData = null;
-      };
-
-      list.appendChild(div);
-    });
-
-    column.appendChild(list);
-
-    // Add card button
-    const addBtn = document.createElement('button');
-    addBtn.className = 'kanban-add';
-    addBtn.textContent = "+ Add";
-    addBtn.onclick = () => showModal(colIdx);
-    column.appendChild(addBtn);
-
-    kanban.appendChild(column);
-  });
-
-  // --- Fix: Update side panel if open and a card is selected ---
-  if (selectedCardCol !== null && selectedCardIdx !== null) {
-    // Find the card object reference
-    let found = false;
-    const cardRef = board[selectedCardCol] && board[selectedCardCol].cards[selectedCardIdx];
-    if (cardRef) {
-      for (let c = 0; c < board.length; ++c) {
-        for (let i = 0; i < board[c].cards.length; ++i) {
-          if (board[c].cards[i] === cardRef) {
-            selectedCardCol = c;
-            selectedCardIdx = i;
-            found = true;
-            break;
-          }
+        function addColumn() {
+            board.push({ name: "New Column", cards: [] });
+            focusNewColumn = true; // Set BEFORE sync
+            sync();
+            // Do NOT call render() here!
         }
-        if (found) break;
-      }
-    }
-    if (found) {
-      showSidePanel(selectedCardCol, selectedCardIdx);
-    } else {
-      // Card was deleted
-      closeSidePanel();
-    }
-  }
-}
 
-// Move card from one position to another (can be same or different column)
-function moveCard(fromCol, fromIdx, toCol, toIdx) {
-  if (fromCol === toCol && fromIdx === toIdx) return;
-  const card = board[fromCol].cards[fromIdx];
-  board[fromCol].cards.splice(fromIdx, 1);
-  if (fromCol === toCol && toIdx > fromIdx) toIdx--;
-  board[toCol].cards.splice(toIdx, 0, card);
-  sync();
-}
+        function render() {
+            const kanban = document.getElementById('kanban');
+            kanban.innerHTML = '';
+            board.forEach((col, colIdx) => {
+                const column = document.createElement('div');
+                column.className = 'kanban-column';
+                column.dataset.col = colIdx;
 
-// Side panel logic
-function showSidePanel(colIdx, cardIdx) {
-  selectedCardCol = colIdx;
-  selectedCardIdx = cardIdx;
-  const card = board[colIdx].cards[cardIdx];
-  const panel = document.getElementById('side-panel');
-  const content = document.getElementById('side-panel-content');
+                // Header
+                const header = document.createElement('div');
+                header.className = 'kanban-header';
+                const nameInput = document.createElement('input');
+                nameInput.value = col.name;
+                nameInput.onblur = () => {
+                    board[colIdx].name = nameInput.value.trim() || "Untitled";
+                    sync();
+                };
+                nameInput.onkeydown = (e) => { if (e.key === "Enter") nameInput.blur(); };
+                header.appendChild(nameInput);
 
-  // Helper to render a field (text or input)
-  function renderField(label, value, field, type = "text") {
-    const id = `sp-${field}`;
-    const isEditing = showSidePanel.editing === field;
-    const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
-    let html = `<div style="margin-bottom:1.2em;">`;
-    html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">${label}</label>`;
-    if (isEditing) {
-      if (type === "textarea") {
-        html += `<textarea id="${id}" style="${sharedStyle}min-height:4em;border:none;border-bottom:2px solid #888;resize:vertical;">${value || ""}</textarea>`;
-      } else {
-        html += `<input id="${id}" type="${type}" value="${value || ""}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
-      }
-    } else {
-      html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('${field}', event)">${value ? (type === "datetime-local" ? value.replace("T", " ") : value) : "<span style='color:#aaa'>(none)</span>"}</span>`;
-    }
-    html += `</div>`;
-    return html;
-  }
+                if (board.length > 1) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-column-btn';
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.title = "Remove column";
+                    removeBtn.onclick = () => { board.splice(colIdx, 1); sync(); };
+                    //   header.appendChild(removeBtn);
+                    // add to the left side of the header
+                    header.insertBefore(removeBtn, nameInput);
+                }
+                column.appendChild(header);
 
-  // Column dropdown logic
-  function renderColumnField() {
-    const id = `sp-column`;
-    const isEditing = showSidePanel.editing === "column";
-    const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
-    let html = `<div style="margin-bottom:1.2em;">`;
-    html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">Column</label>`;
-    if (isEditing) {
-      html += `<select id="${id}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
-      board.forEach((col, idx) => {
-        html += `<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`;
-      });
-      html += `</select>`;
-    } else {
-      html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('column', event)">${board[colIdx].name}</span>`;
-    }
-    html += `</div>`;
-    return html;
-  }
+                // Card list
+                const list = document.createElement('div');
+                list.className = 'kanban-list';
+                list.ondragover = (e) => e.preventDefault();
+                list.ondrop = (e) => {
+                    e.preventDefault();
+                    if (!dragData) return;
+                    moveCard(dragData.colIdx, dragData.cardIdx, colIdx, col.cards.length);
+                    dragData = null;
+                };
 
-  content.innerHTML = `
-    <div style="font-size:1.3em;font-weight:bold;margin-bottom:1.2em;">${card.name || "(No name)"}</div>
-    ${renderField("Name", card.name, "name")}
-    ${renderColumnField()}
-    ${renderField("Weight", card.weight, "weight", "number")}
-    ${renderField("Due", card.due, "due", "datetime-local")}
-    ${renderField("Description", card.desc, "desc", "textarea")}
-  `;
-  panel.style.display = "block";
+                col.cards.forEach((card, cardIdx) => {
+                    if (typeof card === "string") card = board[colIdx].cards[cardIdx] = { name: card, weight: "", desc: "", due: "" };
+                    const div = document.createElement('div');
+                    div.className = 'kanban-card';
+                    div.draggable = true;
+                    div.tabIndex = 0;
 
-  // Attach input handlers if editing
-  ["name", "weight", "due", "desc"].forEach(field => {
-    const id = `sp-${field}`;
-    if (showSidePanel.editing === field) {
-      const input = document.getElementById(id);
-      if (input) {
-        input.focus();
-        input.select && input.select();
-        // Save and exit edit mode on blur or Enter
-        input.onblur = saveEdit;
-        input.onkeydown = function(e) {
-          if (e.key === "Enter" && field !== "desc") {
-            e.preventDefault();
-            input.blur();
-          }
+                    // Card click: show side panel
+                    div.onclick = (e) => {
+                        if (e.target.classList.contains('edit-icon')) return; // Don't trigger on edit icon
+                        showSidePanel(colIdx, cardIdx);
+                    };
+
+                    // Card main info
+                    const cardMain = document.createElement('div');
+                    cardMain.style.display = "flex";
+                    cardMain.style.justifyContent = "space-between";
+                    cardMain.style.alignItems = "center";
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = card.name || "(No name)";
+                    nameSpan.style.fontWeight = "bold";
+                    cardMain.appendChild(nameSpan);
+
+                    // Modern SVG pencil icon
+                    const pencil = document.createElement('span');
+                    pencil.innerHTML = `<svg class="edit-icon" width="28" height="28" viewBox="0 0 24 24" style="vertical-align:middle;cursor:pointer;fill:#555;"><path d="M3 17.25V21h3.75l11.06-11.06-3.75-3.75L3 17.25zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+                    pencil.title = "Edit card";
+                    pencil.onclick = (e) => {
+                        e.stopPropagation();
+                        showEditModal(colIdx, cardIdx);
+                    };
+                    cardMain.appendChild(pencil);
+
+                    div.appendChild(cardMain);
+
+                    // Card details (weight, due)
+                    const details = document.createElement('div');
+                    details.style.fontSize = "0.95em";
+                    details.style.color = "#666";
+                    details.style.marginTop = "0.3em";
+                    if (card.weight) {
+                        const w = document.createElement('span');
+                        w.textContent = "⚖️ " + card.weight;
+                        w.style.marginRight = "0.7em";
+                        details.appendChild(w);
+                    }
+                    if (card.due) {
+                        const d = document.createElement('span');
+                        d.textContent = "⏰ " + (card.due.length > 16 ? card.due.replace("T", " ") : card.due);
+                        details.appendChild(d);
+                    }
+                    if (card.weight || card.due) div.appendChild(details);
+
+                    // Tooltip for description
+                    div.title = card.desc || "";
+
+                    // Drag logic
+                    div.ondragstart = (e) => {
+                        dragData = { colIdx, cardIdx };
+                        e.dataTransfer.effectAllowed = "move";
+                        setTimeout(() => div.classList.add('dragging'), 0);
+                    };
+                    div.ondragend = (e) => {
+                        dragData = null;
+                        div.classList.remove('dragging');
+                    };
+                    div.ondragover = (e) => { e.preventDefault(); div.style.borderTop = "2px solid #333"; };
+                    div.ondragleave = (e) => { div.style.borderTop = ""; };
+                    div.ondrop = (e) => {
+                        e.preventDefault();
+                        div.style.borderTop = "";
+                        if (!dragData) return;
+                        moveCard(dragData.colIdx, dragData.cardIdx, colIdx, cardIdx);
+                        dragData = null;
+                    };
+
+                    list.appendChild(div);
+                });
+
+                column.appendChild(list);
+
+                // Add card button
+                const addBtn = document.createElement('button');
+                addBtn.className = 'kanban-add';
+                addBtn.textContent = "+";
+                addBtn.onclick = () => {
+                    // Create a new card with empty fields
+                    const newCard = { name: "", weight: "", desc: "", due: "" };
+                    board[colIdx].cards.push(newCard);
+                    sync();
+                    render();
+                    focusSidePanelName = true;
+                    showSidePanel(colIdx, board[colIdx].cards.length - 1, true); // true for focus
+                };
+                // column.appendChild(addBtn);
+                // add to the header instead
+                header.appendChild(addBtn);
+
+                kanban.appendChild(column);
+            });
+
+            // --- Fix: Update side panel if open and a card is selected ---
+            if (selectedCardCol !== null && selectedCardIdx !== null) {
+                // Find the card object reference
+                let found = false;
+                const cardRef = board[selectedCardCol] && board[selectedCardCol].cards[selectedCardIdx];
+                if (cardRef) {
+                    for (let c = 0; c < board.length; ++c) {
+                        for (let i = 0; i < board[c].cards.length; ++i) {
+                            if (board[c].cards[i] === cardRef) {
+                                selectedCardCol = c;
+                                selectedCardIdx = i;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                }
+                if (found) {
+                    showSidePanel(selectedCardCol, selectedCardIdx);
+                } else {
+                    // Card was deleted
+                    closeSidePanel();
+                }
+            }
+
+            // Focus the name input of the new column if requested
+            if (focusNewColumn) {
+                focusNewColumn = false;
+                setTimeout(() => {
+                    const kanban = document.getElementById('kanban');
+                    if (kanban) {
+                        const columns = kanban.getElementsByClassName('kanban-column');
+                        if (columns.length > 0) {
+                            const lastCol = columns[columns.length - 1];
+                            const input = lastCol.querySelector('.kanban-header input');
+                            if (input) {
+                                input.focus();
+                                input.select && input.select();
+                            }
+                        }
+                    }
+                }, 0);
+            }
+        }
+
+        // Move card from one position to another (can be same or different column)
+        function moveCard(fromCol, fromIdx, toCol, toIdx) {
+            if (fromCol === toCol && fromIdx === toIdx) return;
+            const card = board[fromCol].cards[fromIdx];
+            board[fromCol].cards.splice(fromIdx, 1);
+            if (fromCol === toCol && toIdx > fromIdx) toIdx--;
+            board[toCol].cards.splice(toIdx, 0, card);
+            sync();
+        }
+
+        // Side panel logic
+        function showSidePanel(colIdx, cardIdx, focusFirst = false) {
+            selectedCardCol = colIdx;
+            selectedCardIdx = cardIdx;
+            const card = board[colIdx].cards[cardIdx];
+            const panel = document.getElementById('side-panel');
+            const content = document.getElementById('side-panel-content');
+
+            function renderField(label, value, field, type = "text", tabIndex = 1) {
+                const id = `sp-${field}`;
+                const isEditing = showSidePanel.editing === field;
+                const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
+                let html = `<div style="margin-bottom:1.2em;">`;
+                html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">${label}</label>`;
+                if (isEditing) {
+                    if (type === "textarea") {
+                        html += `<textarea id="${id}" tabindex="${tabIndex}" style="${sharedStyle}min-height:4em;border:none;border-bottom:2px solid #888;resize:vertical;">${value || ""}</textarea>`;
+                    } else {
+                        html += `<input id="${id}" tabindex="${tabIndex}" type="${type}" value="${value || ""}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
+                    }
+                } else {
+                    html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('${field}', event)">${value ? (type === "datetime-local" ? value.replace("T", " ") : value) : "<span style='color:#aaa'>(none)</span>"}</span>`;
+                }
+                html += `</div>`;
+                return html;
+            }
+
+            // Column dropdown logic
+            function renderColumnField() {
+                const id = `sp-column`;
+                const isEditing = showSidePanel.editing === "column";
+                const sharedStyle = "width:100%;font-size:1em;padding:0.3em 0.5em;background:transparent;outline:none;box-sizing:border-box;";
+                let html = `<div style="margin-bottom:1.2em;">`;
+                html += `<label style="font-weight:bold;display:block;margin-bottom:0.2em;">Column</label>`;
+                if (isEditing) {
+                    html += `<select id="${id}" style="${sharedStyle}border:none;border-bottom:2px solid #888;">`;
+                    board.forEach((col, idx) => {
+                        html += `<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`;
+                    });
+                    html += `</select>`;
+                } else {
+                    html += `<span id="${id}-val" style="${sharedStyle}display:inline-block;border:none;border-bottom:1px solid #e0e0e0;cursor:pointer;" onclick="editSidePanelField('column', event)">${board[colIdx].name}</span>`;
+                }
+                html += `</div>`;
+                return html;
+            }
+
+            content.innerHTML = `
+            <div style="font-size:1.3em;font-weight:bold;margin-bottom:1.2em;">${card.name || "(No name)"}</div>
+            ${renderField("Name", card.name, "name", "text", 1)}
+            ${renderColumnField()}
+            ${renderField("Weight", card.weight, "weight", "number", 2)}
+            ${renderField("Due", card.due, "due", "datetime-local", 3)}
+            ${renderField("Description", card.desc, "desc", "textarea", 4)}
+            `;
+
+            panel.style.display = "block";
+
+            // Focus the first field if requested or if the flag is set
+            if (focusFirst || focusSidePanelName) {
+                focusSidePanelName = false;
+                setTimeout(() => {
+                    const nameInput = document.getElementById('sp-name');
+                    if (nameInput) {
+                        nameInput.focus();
+                        nameInput.select && nameInput.select();
+                    }
+                }, 0);
+            }
+
+            // Tab/Enter navigation for sidebar fields
+            const fieldOrder = ['sp-name', 'sp-weight', 'sp-due', 'sp-desc'];
+            fieldOrder.forEach((id, idx) => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.onkeydown = function (e) {
+                        // Tab or Enter (except textarea) moves to next field
+                        if ((e.key === "Tab") || (e.key === "Enter" && input.tagName !== "TEXTAREA")) {
+                            e.preventDefault();
+                            let nextIdx = idx + (e.shiftKey ? -1 : 1);
+                            if (nextIdx >= 0 && nextIdx < fieldOrder.length) {
+                                const nextInput = document.getElementById(fieldOrder[nextIdx]);
+                                if (nextInput) {
+                                    nextInput.focus();
+                                    nextInput.select && nextInput.select();
+                                }
+                            }
+                        }
+                        // Escape closes sidebar
+                        if (e.key === "Escape") {
+                            closeSidePanel();
+                        }
+                    };
+                }
+            });
+
+            // Attach input handlers if editing
+            ["name", "weight", "due", "desc"].forEach(field => {
+                const id = `sp-${field}`;
+                if (showSidePanel.editing === field) {
+                    const input = document.getElementById(id);
+                    if (input) {
+                        input.focus();
+                        input.select && input.select();
+                        // Save and exit edit mode on blur or Enter
+                        input.onblur = saveEdit;
+                        input.onkeydown = function (e) {
+                            if (e.key === "Enter" && field !== "desc") {
+                                e.preventDefault();
+                                input.blur();
+                            }
+                        };
+                        function saveEdit() {
+                            let val = input.value;
+                            if (field === "weight") val = val.replace(/[^\d.]/g, '');
+                            card[field] = val;
+                            showSidePanel.editing = null;
+                            sync();
+                            render();
+                            showSidePanel(colIdx, cardIdx);
+                        }
+                    }
+                }
+            });
+
+            // Column dropdown handler
+            if (showSidePanel.editing === "column") {
+                const select = document.getElementById('sp-column');
+                if (select) {
+                    select.focus();
+                    select.onblur = saveColumnEdit;
+                    select.onchange = saveColumnEdit;
+                    function saveColumnEdit() {
+                        const newColIdx = parseInt(select.value);
+                        if (newColIdx !== colIdx) {
+                            // Move card to new column
+                            board[newColIdx].cards.push(card);
+                            board[colIdx].cards.splice(cardIdx, 1);
+                            showSidePanel.editing = null;
+                            sync();
+                            render();
+                            // Show the card in its new column
+                            showSidePanel(newColIdx, board[newColIdx].cards.length - 1);
+                        } else {
+                            showSidePanel.editing = null;
+                            showSidePanel(colIdx, cardIdx);
+                        }
+                    }
+                }
+            }
+        }
+        showSidePanel.editing = null;
+
+        // Called by clicking the value
+        window.editSidePanelField = function (field, event) {
+            // Instantly switch to new field, even if another is being edited
+            showSidePanel.editing = field;
+            showSidePanel(selectedCardCol, selectedCardIdx);
+            if (event) event.stopPropagation();
         };
+        function closeSidePanel() {
+            document.getElementById('side-panel').style.display = "none";
+            selectedCardCol = null;
+            selectedCardIdx = null;
+        }
+
+        function addColumn() {
+            board.push({ name: "New Column", cards: [] });
+            focusNewColumn = true; // Set BEFORE sync
+            sync();
+            // Do NOT call render() here!
+        }
+
         function saveEdit() {
-          let val = input.value;
-          if (field === "weight") val = val.replace(/[^\d.]/g, '');
-          card[field] = val;
-          showSidePanel.editing = null;
-          sync();
-          render();
-          showSidePanel(colIdx, cardIdx);
+            const card = board[editCardCol].cards[editCardIdx];
+            card.name = document.getElementById('edit-name').value.trim();
+            card.weight = document.getElementById('edit-weight').value.trim();
+            card.desc = document.getElementById('edit-desc').value.trim();
+            card.due = document.getElementById('edit-due').value;
+            sync();
+            hideEditModal();
+            // If side panel is open for this card, update it
+            if (selectedCardCol === editCardCol && selectedCardIdx === editCardIdx) showSidePanel(editCardCol, editCardIdx);
         }
-      }
-    }
-  });
 
-  // Column dropdown handler
-  if (showSidePanel.editing === "column") {
-    const select = document.getElementById('sp-column');
-    if (select) {
-      select.focus();
-      select.onblur = saveColumnEdit;
-      select.onchange = saveColumnEdit;
-      function saveColumnEdit() {
-        const newColIdx = parseInt(select.value);
-        if (newColIdx !== colIdx) {
-          // Move card to new column
-          board[newColIdx].cards.push(card);
-          board[colIdx].cards.splice(cardIdx, 1);
-          showSidePanel.editing = null;
-          sync();
-          render();
-          // Show the card in its new column
-          showSidePanel(newColIdx, board[newColIdx].cards.length - 1);
-        } else {
-          showSidePanel.editing = null;
-          showSidePanel(colIdx, cardIdx);
+        function sync() {
+            socket.emit('update_kanban', { id: boardId, board });
         }
-      }
-    }
-  }
-}
-showSidePanel.editing = null;
 
-// Called by clicking the value
-window.editSidePanelField = function(field, event) {
-  // Instantly switch to new field, even if another is being edited
-  showSidePanel.editing = field;
-  showSidePanel(selectedCardCol, selectedCardIdx);
-  if (event) event.stopPropagation();
-};
-function closeSidePanel() {
-  document.getElementById('side-panel').style.display = "none";
-  selectedCardCol = null;
-  selectedCardIdx = null;
-}
+        socket.on('kanban_update', data => {
+            if (Array.isArray(data)) {
+                board = data;
+            } else if (typeof data === "object" && data.todo && data.doing && data.done) {
+                board = [
+                    { name: "To Do", cards: data.todo.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
+                    { name: "Doing", cards: data.doing.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
+                    { name: "Done", cards: data.done.map(n => ({ name: n, weight: "", desc: "", due: "" })) }
+                ];
+            }
+            // Don't reset focusNewColumn here! Let render() handle it.
+            render();
+        });
 
-// Modal logic for adding cards
-function showModal(colIdx) {
-  addCardColumnIdx = colIdx;
-  document.getElementById('modal-bg').classList.add('active');
-  document.getElementById('modal-input').value = '';
-  document.getElementById('modal-input').focus();
-}
-function hideModal() {
-  document.getElementById('modal-bg').classList.remove('active');
-}
-function addCardToColumn() {
-  const val = document.getElementById('modal-input').value.trim();
-  if (val) {
-    board[addCardColumnIdx].cards.push({ name: val, weight: "", desc: "", due: "" });
-    sync();
-    hideModal();
-  }
-}
-document.getElementById('modal-input').addEventListener('keydown', function(e) {
-  if (e.key === "Enter") addCardToColumn();
-});
+        socket.emit('join_kanban', boardId);
+        render();
 
-// Modal logic for adding columns
-function showColumnModal() {
-  document.getElementById('column-modal-bg').classList.add('active');
-  document.getElementById('column-modal-input').value = '';
-  document.getElementById('column-modal-input').focus();
-}
-function hideColumnModal() {
-  document.getElementById('column-modal-bg').classList.remove('active');
-}
-function addColumn() {
-  const val = document.getElementById('column-modal-input').value.trim();
-  if (val) {
-    board.push({ name: val, cards: [] });
-    sync();
-    hideColumnModal();
-  }
-}
-document.getElementById('column-modal-input').addEventListener('keydown', function(e) {
-  if (e.key === "Enter") addColumn();
-});
-
-// Edit card modal logic
-function showEditModal(colIdx, cardIdx) {
-  editCardCol = colIdx;
-  editCardIdx = cardIdx;
-  const card = board[colIdx].cards[cardIdx];
-  document.getElementById('edit-name').value = card.name || "";
-  document.getElementById('edit-weight').value = card.weight || "";
-  document.getElementById('edit-desc').value = card.desc || "";
-  document.getElementById('edit-due').value = card.due || "";
-  document.getElementById('edit-modal-bg').classList.add('active');
-}
-function hideEditModal() {
-  document.getElementById('edit-modal-bg').classList.remove('active');
-}
-function saveEdit() {
-  const card = board[editCardCol].cards[editCardIdx];
-  card.name = document.getElementById('edit-name').value.trim();
-  card.weight = document.getElementById('edit-weight').value.trim();
-  card.desc = document.getElementById('edit-desc').value.trim();
-  card.due = document.getElementById('edit-due').value;
-  sync();
-  hideEditModal();
-  // If side panel is open for this card, update it
-  if (selectedCardCol === editCardCol && selectedCardIdx === editCardIdx) showSidePanel(editCardCol, editCardIdx);
-}
-
-function sync() {
-  socket.emit('update_kanban', { id: boardId, board });
-}
-
-socket.on('kanban_update', data => {
-  if (Array.isArray(data)) {
-    board = data;
-  } else if (typeof data === "object" && data.todo && data.doing && data.done) {
-    board = [
-      { name: "To Do", cards: data.todo.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
-      { name: "Doing", cards: data.doing.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
-      { name: "Done", cards: data.done.map(n => ({ name: n, weight: "", desc: "", due: "" })) }
-    ];
-  }
-  render();
-});
-
-socket.emit('join_kanban', boardId);
-render();
-  </script>
+        document.addEventListener('keydown', function (e) {
+            // Only close sidebar if it's open and not in a modal
+            const panel = document.getElementById('side-panel');
+            if (panel && panel.style.display === "block" && e.key === "Escape") {
+                closeSidePanel();
+            }
+        });
+    </script>
 </body>
+
 </html>
