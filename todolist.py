@@ -48,6 +48,24 @@ def create_board():
 def view_board(board_id):
     return render_template('board.html')
 
+@app.route('/kanban')
+def create_kanban():
+    board_id = str(uuid.uuid4())[:8]
+    kanban_boards[board_id] = [
+        {"name": "To Do", "cards": []},
+        {"name": "Doing", "cards": []},
+        {"name": "Done", "cards": []}
+    ]
+    return redirect(url_for('view_kanban', board_id=board_id))
+
+@app.route('/kanban/<board_id>')
+def view_kanban(board_id):
+    return render_template('kanban.html')
+
+@app.route('/todo')
+def todo():
+    return render_template('todo.html')
+
 @app.route('/api/board/<board_id>')
 def api_get_board(board_id):
     content = shared_boards.get(board_id)
@@ -137,20 +155,6 @@ def update_shared_board(data):
     content = data['content'][:10000]
     shared_boards[board_id] = content
     emit('shared_board', content, room=board_id)
-
-@app.route('/kanban')
-def create_kanban():
-    board_id = str(uuid.uuid4())[:8]
-    kanban_boards[board_id] = [
-        {"name": "To Do", "cards": []},
-        {"name": "Doing", "cards": []},
-        {"name": "Done", "cards": []}
-    ]
-    return redirect(url_for('view_kanban', board_id=board_id))
-
-@app.route('/kanban/<board_id>')
-def view_kanban(board_id):
-    return render_template('kanban.html')
 
 @socketio.on('join_kanban')
 def join_kanban(board_id):

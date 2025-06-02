@@ -1,0 +1,350 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>tachyonic</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: 'Fira Code', 'Source Code Pro', monospace;
+      margin: 0;
+      background: #f4f4f9;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .titlebar {
+      background: #333;
+      color: white;
+      padding: 0.2em 1em;
+      font-size: 1em;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .titlebar .header-actions button {
+      margin-left: 0.5em;
+      font-size: 1em;
+      background: #666;
+      border: none;
+      color: white;
+      padding: 0.5em 0.75em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 200px;
+      background: #2c2c2c;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 1em;
+      font-size: 0.9em;
+    }
+
+    .tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+      margin-top: 1em;
+    }
+
+    .tab {
+      background: #444;
+      border: none;
+      color: white;
+      padding: 0.5em 1em;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .tab.active {
+      background: #fff;
+      color: #333;
+    }
+
+    .add-tab {
+      font-size: 0.8em;
+      background: #555;
+      color: #ddd;
+      border: none;
+      border-radius: 5px;
+      padding: 0.3em 0.5em;
+      margin-top: 0.5em;
+      cursor: pointer;
+      align-self: flex-start;
+      font-family: inherit;
+    }
+
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      padding: 2em;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .search-box {
+      margin-bottom: 1em;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 0.75em;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-family: inherit;
+    }
+
+    form {
+      margin-bottom: 1em;
+      display: flex;
+      align-items: center;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    #newtodo {
+      flex: 1;
+      padding: 0.75em;
+      border: none;
+      font-size: 1em;
+      font-family: inherit;
+    }
+
+    .add-btn {
+      color: #aaa;
+      border: none;
+      font-size: 1.5em;
+      width: 48px;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .add-btn:hover {
+      background: #ddd;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    li {
+      margin: 0.5em 0;
+      background: white;
+      padding: 0.5em;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.2s;
+    }
+
+    li:hover {
+      background: #eef;
+      cursor: default;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      flex: 1;
+    }
+
+    .todo-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .todo-text {
+      flex: 1;
+      font-family: inherit;
+    }
+
+    .todo-text[contenteditable="true"] {
+      outline: none;
+    }
+
+    .done {
+      text-decoration: line-through;
+      color: #888;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #c00;
+      font-size: 1em;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+
+    .delete-btn:hover {
+      background: #fdd;
+      border-radius: 4px;
+    }
+
+    .delete-btn::after {
+      content: 'Delete';
+      font-size: 1.2em;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Source+Code+Pro&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+  <div class="titlebar">
+    tachyonic
+    <div class="header-actions">
+      <button onclick="location.href='/board'" title="New Shared Board">New Board</button>
+      <button onclick="location.href='/kanban'" title="New Kanban Board">New Kanban</button>
+      <button onclick="toggleDarkMode()" title="Toggle Dark Mode">🌓</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="sidebar">
+      <div class="tabs" id="tabbar"></div>
+      <button class="add-tab" title="Create new list" onclick="promptNewList()">+ List</button>
+    </div>
+    <div class="main-panel">
+      <main>
+        <div class="search-box">
+          <input type="text" id="search" placeholder="Search todos..." oninput="filterTodos()">
+        </div>
+        <form id="form">
+          <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
+          <button class="add-btn" type="submit" title="Add task">+</button>
+        </form>
+        <ul id="todolist"></ul>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentList = "default";
+    let fullTodos = [];
+
+    function escapeHTML(str) {
+      return str.replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function renderTodos(data) {
+      fullTodos = data.todos;
+      const tabbar = document.getElementById('tabbar');
+      tabbar.innerHTML = '';
+      data.lists.forEach(name => {
+        const button = document.createElement('button');
+        button.className = 'tab' + (name === currentList ? ' active' : '');
+        button.textContent = name;
+        button.onclick = () => {
+          currentList = name;
+          socket.emit('switch_list', name);
+        };
+        tabbar.appendChild(button);
+      });
+      filterTodos();
+    }
+
+    function filterTodos() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const list = document.getElementById('todolist');
+      list.innerHTML = '';
+      fullTodos.forEach((todo, index) => {
+        if (todo.text.toLowerCase().includes(query)) {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <div class="todo-item">
+              <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggle(${index})">
+              <span class="todo-text ${todo.done ? 'done' : ''}" contenteditable="true" onblur="commitEdit(${index}, this)" onkeydown="checkEnter(event)">${escapeHTML(todo.text)}</span>
+            </div>
+            <button class="delete-btn" title="Delete task" onclick="remove(${index})"></button>
+          `;
+          list.appendChild(li);
+        }
+      });
+    }
+
+    function checkEnter(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+      }
+    }
+
+    socket.on('todos', renderTodos);
+
+    document.getElementById('form').onsubmit = (e) => {
+      e.preventDefault();
+      const input = document.getElementById('newtodo');
+      if (input.value.trim()) {
+        socket.emit('add_todo', { list: currentList, text: input.value.trim() });
+        input.value = '';
+      }
+    };
+
+    function toggle(index) {
+      socket.emit('toggle_todo', { list: currentList, index });
+    }
+
+    function remove(index) {
+      socket.emit('remove_todo', { list: currentList, index });
+    }
+
+    function commitEdit(index, element) {
+      const newText = element.innerText.trim();
+      if (newText) {
+        socket.emit('edit_todo', { list: currentList, index, text: newText });
+      }
+    }
+
+    function promptNewList() {
+      const name = prompt("Enter new list name:");
+      if (name) {
+        currentList = name;
+        socket.emit('create_list', name);
+      }
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem("darkMode", document.body.classList.contains("dark-mode"));
+    }
+
+    window.onload = function () {
+      if (localStorage.getItem("darkMode") === "true") {
+        document.body.classList.add("dark-mode");
+      }
+    };
+  </script>
+</body>
+
+</html>
