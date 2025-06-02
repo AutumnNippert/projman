@@ -2,28 +2,62 @@
 <html>
 
 <head>
-  <title>Realtime Todo List</title>
+  <title>tachyonic</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'Fira Code', 'Source Code Pro', monospace;
       margin: 0;
       background: #f4f4f9;
       color: #333;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
 
-    header {
-      display: flex;
-      align-items: center;
+    .titlebar {
       background: #333;
       color: white;
-      padding: 1em;
+      padding: 0.2em 1em;
+      font-size: 1em;
+      font-weight: bold;
+      display: flex;
       justify-content: space-between;
+      align-items: center;
+    }
+
+    .titlebar .header-actions button {
+      margin-left: 0.5em;
+      font-size: 1em;
+      background: #666;
+      border: none;
+      color: white;
+      padding: 0.5em 0.75em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 200px;
+      background: #2c2c2c;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 1em;
+      font-size: 0.9em;
     }
 
     .tabs {
       display: flex;
+      flex-direction: column;
       gap: 0.5em;
+      margin-top: 1em;
     }
 
     .tab {
@@ -33,6 +67,7 @@
       padding: 0.5em 1em;
       border-radius: 5px;
       cursor: pointer;
+      font-family: inherit;
     }
 
     .tab.active {
@@ -41,22 +76,28 @@
     }
 
     .add-tab {
-      font-size: 1.4em;
+      font-size: 0.8em;
       background: #555;
       color: #ddd;
       border: none;
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border-radius: 5px;
+      padding: 0.3em 0.5em;
+      margin-top: 0.5em;
       cursor: pointer;
+      align-self: flex-start;
+      font-family: inherit;
+    }
+
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     main {
       padding: 2em;
-      position: relative;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .search-box {
@@ -69,6 +110,7 @@
       font-size: 1em;
       border: 1px solid #ccc;
       border-radius: 6px;
+      font-family: inherit;
     }
 
     form {
@@ -85,6 +127,7 @@
       padding: 0.75em;
       border: none;
       font-size: 1em;
+      font-family: inherit;
     }
 
     .add-btn {
@@ -137,6 +180,7 @@
 
     .todo-text {
       flex: 1;
+      font-family: inherit;
     }
 
     .todo-text[contenteditable="true"] {
@@ -155,6 +199,7 @@
       color: #c00;
       font-size: 1em;
       transition: background 0.2s;
+      font-family: inherit;
     }
 
     .delete-btn:hover {
@@ -166,101 +211,37 @@
       content: 'Delete';
       font-size: 1.2em;
     }
-
-    .new-board-btn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 48px;
-      height: 48px;
-      font-size: 2em;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .new-board-btn:hover {
-      background: #45a049;
-    }
   </style>
-  <style id="dark-mode-style">
-    body.dark-mode {
-      background: #121212;
-      color: #e0e0e0;
-    }
-
-    body.dark-mode header {
-      background: #222;
-      color: #fff;
-    }
-
-    body.dark-mode .tab {
-      background: #333;
-      color: #ccc;
-    }
-
-    body.dark-mode .tab.active {
-      background: #e0e0e0;
-      color: #121212;
-    }
-
-    body.dark-mode .add-tab {
-      background: #444;
-      color: #ccc;
-    }
-
-    body.dark-mode li {
-      background: #1e1e1e;
-      color: #e0e0e0;
-    }
-
-    body.dark-mode li:hover {
-      background: #2a2a2a;
-    }
-
-    body.dark-mode .search-box input,
-    body.dark-mode form {
-      background: #1e1e1e;
-      color: #fff;
-      border-color: #555;
-    }
-
-    body.dark-mode .add-btn:hover {
-      background: #2a2a2a;
-    }
-
-    body.dark-mode .delete-btn:hover {
-      background: #700;
-    }
-  </style>
-
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Source+Code+Pro&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <header>
-    <div class="tabs" id="tabbar"></div>
-    <button onclick="toggleDarkMode()"
-      style="background:none; border:none; color:white; font-size:1.2em; cursor:pointer;"
-      title="Toggle Dark Mode">🌓</button>
-    <button class="add-tab" title="Create new list" onclick="promptNewList()">+</button>
-  </header>
-  <main>
-    <div class="search-box">
-      <input type="text" id="search" placeholder="Search todos..." oninput="filterTodos()">
+  <div class="titlebar">
+    tachyonic
+    <div class="header-actions">
+      <button onclick="location.href='/board'" title="New Shared Board">New Board</button>
+      <button onclick="toggleDarkMode()" title="Toggle Dark Mode">🌓</button>
     </div>
-    <form id="form">
-      <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
-      <button class="add-btn" type="submit" title="Add task">+</button>
-    </form>
-    <ul id="todolist"></ul>
-    <button class="new-board-btn" onclick="location.href='/board'" title="New Shared Board">+</button>
-  </main>
+  </div>
+  <div class="content">
+    <div class="sidebar">
+      <div class="tabs" id="tabbar"></div>
+      <button class="add-tab" title="Create new list" onclick="promptNewList()">+ List</button>
+    </div>
+    <div class="main-panel">
+      <main>
+        <div class="search-box">
+          <input type="text" id="search" placeholder="Search todos..." oninput="filterTodos()">
+        </div>
+        <form id="form">
+          <input type="text" id="newtodo" autocomplete="off" placeholder="New todo">
+          <button class="add-btn" type="submit" title="Add task">+</button>
+        </form>
+        <ul id="todolist"></ul>
+      </main>
+    </div>
+  </div>
+
   <script>
     const socket = io();
     let currentList = "default";
@@ -270,7 +251,7 @@
       return str.replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
     }
 
@@ -361,7 +342,6 @@
         document.body.classList.add("dark-mode");
       }
     };
-
   </script>
 </body>
 
