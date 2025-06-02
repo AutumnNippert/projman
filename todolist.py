@@ -16,6 +16,9 @@ shared_boards = {}
 # mapping of client session IDs to todo lists they are viewing for emitting updates
 list_client_mapping = {}
 
+# In-memory storage for kanban boards
+kanban_boards = {}
+
 def load_todos():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
@@ -134,6 +137,36 @@ def update_shared_board(data):
     content = data['content'][:10000]
     shared_boards[board_id] = content
     emit('shared_board', content, room=board_id)
+
+@app.route('/kanban')
+def create_kanban():
+    board_id = str(uuid.uuid4())[:8]
+    kanban_boards[board_id] = [
+        {"name": "To Do", "cards": []},
+        {"name": "Doing", "cards": []},
+        {"name": "Done", "cards": []}
+    ]
+    return redirect(url_for('view_kanban', board_id=board_id))
+
+@app.route('/kanban/<board_id>')
+def view_kanban(board_id):
+    return render_template('kanban.html')
+
+@socketio.on('join_kanban')
+def join_kanban(board_id):
+    join_room(board_id)
+    board = kanban_boards.get(board_id)
+    if board is None:
+        board = {"todo": [], "doing": [], "done": []}
+        kanban_boards[board_id] = board
+    emit('kanban_update', board, room=board_id)
+
+@socketio.on('update_kanban')
+def update_kanban(data):
+    board_id = data['id']
+    board = data['board']
+    kanban_boards[board_id] = board
+    emit('kanban_update', board, room=board_id)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0')
