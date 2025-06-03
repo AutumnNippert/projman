@@ -53,7 +53,7 @@ def create_kanban():
     board_id = str(uuid.uuid4())[:8]
     kanban_boards[board_id] = [
         {"name": "To Do", "cards": []},
-        {"name": "Doing", "cards": []},
+        {"name": "In Progress", "cards": []},
         {"name": "Done", "cards": []}
     ]
     return redirect(url_for('view_kanban', board_id=board_id))
@@ -161,7 +161,7 @@ def join_kanban(board_id):
     join_room(board_id)
     board = kanban_boards.get(board_id)
     if board is None:
-        board = {"todo": [], "doing": [], "done": []}
+        board = {"todo": [], "in progress": [], "done": []}
         kanban_boards[board_id] = board
     emit('kanban_update', board, room=board_id)
 

@@ -2,757 +2,729 @@
 <html>
 
 <head>
-    <title>Kanban Board</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        body {
-            font-family: monospace;
-            margin: 0;
-            background: #f0f0f0;
-            overflow: hidden;
-        }
+	<title>Kanban Board</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<style>
+		.add-column-btn {
+			background: #444;
+			color: #fff;
+			border: none;
+			border-radius: 6px;
+			padding: 0.5em 1.2em;
+			cursor: pointer;
+			transition: background 0.2s;
+			margin: 0;
+			box-shadow: 0 1px 3px #0001;
+		}
 
-        .titlebar {
-            background: #333;
-            color: white;
-            padding: 0.7em 1.5em;
-            font-size: 1.2em;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 8px #0002;
-            position: relative;
-            z-index: 20;
-            height: 5vh;
-        }
+		.add-column-btn:hover {
+			background: #666;
+		}
 
-        .titlebar .header-actions {
-            display: flex;
-            gap: 0.7em;
-            align-items: center;
-        }
+		.kanban-container {
+			position: absolute;
+			top: 60px;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			display: flex;
+			align-items: stretch;
+			overflow: auto;
+		}
 
-        .add-column-btn {
-            background: #444;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 0.5em 1.2em;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin: 0;
-            box-shadow: 0 1px 3px #0001;
-        }
+		.kanban-column {
+			flex: 1;
+			margin: 1em;
+			background: #fff;
+			border-radius: 8px;
+			box-shadow: 0 2px 8px #0001;
+			display: flex;
+			flex-direction: column;
+			min-width: calc(100vw/6 - 2em);
+			max-width: calc(100vw/3 - 2em);
+			position: relative;
+			box-sizing: border-box;
+			overflow: hidden;
+		}
 
-        .add-column-btn:hover {
-            background: #666;
-        }
+		.kanban-header {
+			padding: 1em;
+			font-weight: bold;
+			background: #ddd;
+			border-radius: 8px 8px 0 0;
+			text-align: center;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
 
-        .kanban-container {
-            position: absolute;
-            top: 60px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: stretch;
-            overflow: auto;
-            background: #f0f0f0;
-        }
+		.kanban-header input {
+			font-size: 1em;
+			border: none;
+			background: transparent;
+			width: 80%;
+			text-align: center;
+		}
 
-        .kanban-column {
-            flex: 1;
-            margin: 1em;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px #0001;
-            display: flex;
-            flex-direction: column;
-            min-width: calc(100vw/6 - 2em);
-            max-width: calc(100vw/3 - 2em);
-            position: relative;
-            box-sizing: border-box;
-            overflow: hidden;
-        }
+		.kanban-list {
+			flex: 1;
+			min-height: 0;
+			padding: 1em;
+			overflow-y: auto;
+		}
 
-        .kanban-header {
-            padding: 1em;
-            font-weight: bold;
-            background: #ddd;
-            border-radius: 8px 8px 0 0;
-            text-align: center;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+		.kanban-card {
+			background: #f9f9f9;
+			margin-bottom: 0.5em;
+			padding: 0.75em;
+			border-radius: 5px;
+			box-shadow: 0 1px 3px #0002;
+			cursor: grab;
+			user-select: none;
+			outline: none;
+		}
 
-        .kanban-header input {
-            font-size: 1em;
-            border: none;
-            background: transparent;
-            width: 80%;
-            text-align: center;
-        }
+		.kanban-add {
+			background: none;
+			border: none;
+			font-size: 1.2em;
+			cursor: pointer;
+			margin-right: 0.5em;
+		}
 
-        .kanban-list {
-            flex: 1;
-            min-height: 0;
-            padding: 1em;
-            overflow-y: auto;
-        }
+		.remove-column-btn {
+			background: none;
+			border: none;
+			color: #c00;
+			font-size: 1.2em;
+			cursor: pointer;
+			margin-left: 0.5em;
+		}
 
-        .kanban-card {
-            background: #f9f9f9;
-            margin-bottom: 0.5em;
-            padding: 0.75em;
-            border-radius: 5px;
-            box-shadow: 0 1px 3px #0002;
-            cursor: grab;
-            user-select: none;
-            outline: none;
-        }
+		.remove-column-btn:hover {
+			color: #f33;
+		}
 
-        .kanban-add {
-            background: none;
-            border: none;
-            font-size: 1.2em;
-            cursor: pointer;
-            margin-right: 0.5em;
-        }
+		#side-panel {
+			display: none;
+			position: fixed;
+			right: 0;
+			width: 320px;
+			height: calc(94vh);
+			background: #fff;
+			box-shadow: -2px 0 12px #0002;
+			z-index: 200;
+			padding: 2em 1.5em 1em 1.5em;
+			overflow-y: auto;
+			box-sizing: border-box;
+		}
 
-        .remove-column-btn {
-            background: none;
-            border: none;
-            color: #c00;
-            font-size: 1.2em;
-            cursor: pointer;
-            margin-left: 0.5em;
-        }
+		#side-panel h2 {
+			margin-top: 0;
+		}
 
-        .remove-column-btn:hover {
-            color: #f33;
-        }
+		#side-panel button {
+			background: #333;
+			border: none;
+			border-radius: 5px;
+			padding: 0.5em 1em;
+			font-size: 1em;
+			cursor: pointer;
+		}
 
-        #side-panel {
-            display: none;
-            position: fixed;
-            right: 0;
-            width: 320px;
-            height: calc(94vh);
-            background: #fff;
-            box-shadow: -2px 0 12px #0002;
-            z-index: 200;
-            padding: 2em 1.5em 1em 1.5em;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
+		/* Sidebar minimalist field styling */
+		#side-panel .sp-field {
+			margin-bottom: 1.2em;
+		}
 
-        #side-panel h2 {
-            margin-top: 0;
-        }
+		#side-panel .sp-label {
+			font-weight: bold;
+			display: block;
+			margin-bottom: 0.2em;
+			color: #222;
+			letter-spacing: 0.02em;
+		}
 
-        #side-panel button {
-            background: #333;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            padding: 0.5em 1em;
-            font-size: 1em;
-            cursor: pointer;
-        }
+		#side-panel .sp-input,
+		#side-panel .sp-select,
+		#side-panel .sp-textarea {
+			width: 100%;
+			font-size: 1em;
+			padding: 0.5em 0.7em;
+			margin-top: 0.2em;
+			margin-bottom: 0.2em;
+			border: none;
+			border-radius: 5px;
+			background: transparent;
+			color: #222;
+			box-sizing: border-box;
+			outline: none;
+			transition: box-shadow 0.2s, border 0.2s;
+			box-shadow: 0 1px 0 0 #0001;
+			/* remove text area resize handle */
+		}
 
-        /* Sidebar minimalist field styling */
-        #side-panel .sp-field {
-            margin-bottom: 1.2em;
-        }
+		#side-panel .sp-input:focus,
+		#side-panel .sp-select:focus,
+		#side-panel .sp-textarea:focus {
+			/* background: #fff; */
+			box-shadow: 0 2px 8px #0002;
+			/* border: 1.5px solid #333; */
+		}
 
-        #side-panel .sp-label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 0.2em;
-            color: #222;
-            letter-spacing: 0.02em;
-        }
+		#side-panel .sp-textarea {
+			resize: none;
+			min-height: 70px;
+			max-height: 200px;
+		}
 
-        #side-panel .sp-input,
-        #side-panel .sp-select,
-        #side-panel .sp-textarea {
-            width: 100%;
-            font-size: 1em;
-            padding: 0.5em 0.7em;
-            margin-top: 0.2em;
-            margin-bottom: 0.2em;
-            border: none;
-            border-radius: 5px;
-            background: transparent;
-            color: #222;
-            box-sizing: border-box;
-            outline: none;
-            transition: box-shadow 0.2s, border 0.2s;
-            box-shadow: 0 1px 0 0 #0001;
-            /* remove text area resize handle */
-        }
+		#side-panel .sp-name {
+			width: 100%;
+			font-size: 1em;
+			padding: 0.5em 0.7em;
+			margin-top: 0.2em;
+			margin-bottom: 1em;
+			border: none;
+			border-radius: 5px;
+			background: transparent;
+			color: #222;
+			box-sizing: border-box;
+			outline: none;
+			transition: box-shadow 0.2s, border 0.2s;
+			box-shadow: 0 1px 0 0 #0001;
+		}
 
-        #side-panel .sp-input:focus,
-        #side-panel .sp-select:focus,
-        #side-panel .sp-textarea:focus {
-            /* background: #fff; */
-            box-shadow: 0 2px 8px #0002;
-            /* border: 1.5px solid #333; */
-        }
+		#side-panel .sp-name:focus {
+			box-shadow: 0 2px 8px #0002;
+		}
 
-        #side-panel .sp-textarea {
-            resize: none;
-            min-height: 70px;
-            max-height: 200px;
-        }
+		/* Add this to your CSS for the placeholder effect */
+		.kanban-placeholder {
+			pointer-events: none;
+			transition: background 0.2s, border 0.2s;
+		}
 
-        #side-panel .sp-name {
-            width: 100%;
-            font-size: 1em;
-            padding: 0.5em 0.7em;
-            margin-top: 0.2em;
-            margin-bottom: 1em;
-            border: none;
-            border-radius: 5px;
-            background: transparent;
-            color: #222;
-            box-sizing: border-box;
-            outline: none;
-            transition: box-shadow 0.2s, border 0.2s;
-            box-shadow: 0 1px 0 0 #0001;
-        }
+		/* --- Segmented control Apple-style --- */
+		.kanban-segments {
+			display: none;
+			position: relative;
+			/* below titlebar */
+			left: 0;
+			width: 100vw;
+			z-index: 100;
+			justify-content: center;
+			background: #f8f8fa;
+			padding: 0.5em 0 0.5em 0;
+			/* more space above and below */
+			border-bottom: 1px solid #e0e0e0;
+			box-shadow: 0 2px 8px #0001;
+			transition: top 0.3s, background 0.3s;
+		}
 
-        #side-panel .sp-name:focus {
-            box-shadow: 0 2px 8px #0002;
-        }
+		.kanban-segment-btn {
+			background: #e5e5ea;
+			border: none;
+			border-radius: 999px;
+			padding: 0.5em 1.5em;
+			font-size: 1.05em;
+			cursor: pointer;
+			color: #333;
+			margin: 0 0.15em;
+			font-weight: 500;
+			transition: background 0.18s, color 0.18s;
+			box-shadow: 0 1px 2px #0001;
+		}
 
-        /* Add this to your CSS for the placeholder effect */
-        .kanban-placeholder {
-            pointer-events: none;
-            transition: background 0.2s, border 0.2s;
-        }
+		.kanban-segment-btn.active,
+		.kanban-segment-btn:focus {
+			background: #fff;
+			color: #222;
+			box-shadow: 0 2px 8px #0002;
+		}
 
-        /* --- Segmented control Apple-style --- */
-        .kanban-segments {
-            display: none;
-            position: relative;
-            /* below titlebar */
-            left: 0;
-            width: 100vw;
-            z-index: 100;
-            justify-content: center;
-            background: #f8f8fa;
-            padding: 0.5em 0 0.5em 0;
-            /* more space above and below */
-            border-bottom: 1px solid #e0e0e0;
-            box-shadow: 0 2px 8px #0001;
-            transition: top 0.3s, background 0.3s;
-        }
+		@media (max-width: 700px) {
+			.kanban-segments {
+				display: flex;
+			}
 
-        .kanban-segment-btn {
-            background: #e5e5ea;
-            border: none;
-            border-radius: 999px;
-            padding: 0.5em 1.5em;
-            font-size: 1.05em;
-            cursor: pointer;
-            color: #333;
-            margin: 0 0.15em;
-            font-weight: 500;
-            transition: background 0.18s, color 0.18s;
-            box-shadow: 0 1px 2px #0001;
-        }
+			.kanban-container {
+				position: relative;
+				/* match the new bar's height (1.1em top + 1.1em bottom + font size) */
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				margin: 0;
+				padding: 0;
+				height: auto;
+				min-height: 0;
+				z-index: 1;
+				transition: top 0.3s, padding 0.3s;
+			}
 
-        .kanban-segment-btn.active,
-        .kanban-segment-btn:focus {
-            background: #fff;
-            color: #222;
-            box-shadow: 0 2px 8px #0002;
-        }
+			.kanban-column {
+				margin: 0;
+				border-radius: 0;
+				min-width: 0;
+				max-width: 100vw;
+				box-shadow: none;
+				height: 100%;
+				transition: all 0.3s;
+			}
 
-        @media (max-width: 700px) {
-            .kanban-segments {
-                display: flex;
-            }
+			#mobile-sidebar,
+			#mobile-sidebar-toggle {
+				display: none !important;
+			}
+		}
 
-            .kanban-container {
-                position: relative;
-                /* match the new bar's height (1.1em top + 1.1em bottom + font size) */
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                margin: 0;
-                padding: 0;
-                background: #f0f0f0;
-                height: auto;
-                min-height: 0;
-                z-index: 1;
-                transition: top 0.3s, padding 0.3s;
-            }
+		@media (min-width: 701px) {
 
-            .kanban-column {
-                margin: 0;
-                border-radius: 0;
-                min-width: 0;
-                max-width: 100vw;
-                box-shadow: none;
-                height: 100%;
-                transition: all 0.3s;
-            }
-
-            #mobile-sidebar,
-            #mobile-sidebar-toggle {
-                display: none !important;
-            }
-        }
-
-        @media (min-width: 701px) {
-
-            .kanban-segments {
-                display: none !important;
-            }
-        }
-    </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+			.kanban-segments {
+				display: none !important;
+			}
+		}
+	</style>
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
-    <!-- Mobile sidebar toggle button -->
-    <button id="mobile-sidebar-toggle" style="display:none; margin-right: 1em;">&#9776;</button>
-    <!-- Mobile sidebar drawer -->
-    <div id="mobile-sidebar" style="display:none;">
-        <!-- Columns will be injected here -->
-    </div>
-    <div class="titlebar">
-        <span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
-        <div class="header-actions">
-            <button class="add-column-btn" onclick="addColumn()">+ Add Column</button>
-        </div>
-    </div>
-        <div id="kanban-segments" class="kanban-segments"></div>
-    <div class="kanban-container" id="kanban"></div>
+	<!-- Mobile sidebar toggle button -->
+	<button id="mobile-sidebar-toggle" style="display:none; margin-right: 1em;">&#9776;</button>
+	<!-- Mobile sidebar drawer -->
+	<div id="mobile-sidebar" style="display:none;">
+		<!-- Columns will be injected here -->
+	</div>
+	<div class="titlebar">
+		<span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
+		<div class="header-actions">
+			<button class="add-column-btn" onclick="addColumn()">+ Add Column</button>
+			<button onclick="window.location.href='/board'" title="Shared Board">Board</button>
+			<button onclick="window.location.href='/kanban'" title="Kanban Board">Kanban</button>
+			<button onclick="window.location.href='/todo'" title="Todo List">Todo</button>
+		</div>
+	</div>
+	<div id="kanban-segments" class="kanban-segments"></div>
+	<div class="kanban-container" id="kanban"></div>
 
-    <!-- Side panel for card details -->
-    <div id="side-panel">
-        <button id="side-panel-close"
-            style="position: fixed; top: 1.3em; right: .15em; background: none; border: none; font-size: 2em; color: #888; cursor: pointer; z-index: 10;">&times;</button>
-        <div id="side-panel-content"></div>
-    </div>
+	<!-- Side panel for card details -->
+	<div id="side-panel">
+		<button id="side-panel-close"
+			style="position: fixed; top: 1.3em; right: .15em; background: none; border: none; font-size: 2em; color: #888; cursor: pointer; z-index: 10;">&times;</button>
+		<div id="side-panel-content"></div>
+	</div>
 
-    <script>
-        let mobileActiveCol = 0;
-        const boardId = window.location.pathname.split("/").pop();
-        const socket = io();
-        let board = [
-            { name: "To Do", cards: [] },
-            { name: "Doing", cards: [] },
-            { name: "Done", cards: [] }
-        ];
-        let selectedCardCol = null, selectedCardIdx = null;
-        let dragData = null;
-        let focusNewColumn = false;
-        let focusSidePanelName = false;
+	<script>
+		let mobileActiveCol = 0;
+		const boardId = window.location.pathname.split("/").pop();
+		const socket = io();
+		let board = [
+			{ name: "To Do", cards: [] },
+			{ name: "In Progress", cards: [] },
+			{ name: "Done", cards: [] }
+		];
+		let selectedCardCol = null, selectedCardIdx = null;
+		let dragData = null;
+		let focusNewColumn = false;
+		let focusSidePanelName = false;
 
-        function addColumn() {
-            board.push({ name: "New Column", cards: [] });
-            focusNewColumn = true;
-            sync();
-        }
+		function addColumn() {
+			board.push({ name: "New Column", cards: [] });
+			focusNewColumn = true;
+			sync();
+		}
 
-        function render() {
-            const isMobile = window.innerWidth <= 700;
+		function render() {
+			const isMobile = window.innerWidth <= 700;
 
-            // Mobile sidebar: render column tabs
-            const mobileSidebar = document.getElementById('mobile-sidebar');
-            if (mobileSidebar) {
-                mobileSidebar.innerHTML = '';
-                board.forEach((col, idx) => {
-                    const tab = document.createElement('div');
-                    tab.className = 'sidebar-col' + (idx === mobileActiveCol ? ' active' : '');
-                    tab.textContent = col.name;
-                    tab.onclick = () => {
-                        mobileActiveCol = idx;
-                        mobileSidebar.classList.remove('open');
-                        render();
-                    };
-                    mobileSidebar.appendChild(tab);
-                });
-            }
+			// Mobile sidebar: render column tabs
+			const mobileSidebar = document.getElementById('mobile-sidebar');
+			if (mobileSidebar) {
+				mobileSidebar.innerHTML = '';
+				board.forEach((col, idx) => {
+					const tab = document.createElement('div');
+					tab.className = 'sidebar-col' + (idx === mobileActiveCol ? ' active' : '');
+					tab.textContent = col.name;
+					tab.onclick = () => {
+						mobileActiveCol = idx;
+						mobileSidebar.classList.remove('open');
+						render();
+					};
+					mobileSidebar.appendChild(tab);
+				});
+			}
 
-            const kanban = document.getElementById('kanban');
-            kanban.innerHTML = '';
-            board.forEach((col, colIdx) => {
-                // Only show the active column on mobile
-                if (isMobile && colIdx !== mobileActiveCol) return;
+			const kanban = document.getElementById('kanban');
+			kanban.innerHTML = '';
+			board.forEach((col, colIdx) => {
+				// Only show the active column on mobile
+				if (isMobile && colIdx !== mobileActiveCol) return;
 
-                const column = document.createElement('div');
-                column.className = 'kanban-column';
-                column.dataset.col = colIdx;
+				const column = document.createElement('div');
+				column.className = 'kanban-column';
+				column.dataset.col = colIdx;
 
-                // On mobile, mark the active column
-                if (isMobile) column.classList.add('active');
+				// On mobile, mark the active column
+				if (isMobile) column.classList.add('active');
 
-                // Header
-                const header = document.createElement('div');
-                header.className = 'kanban-header';
-                const nameInput = document.createElement('input');
-                nameInput.value = col.name;
-                nameInput.onblur = () => {
-                    board[colIdx].name = nameInput.value.trim() || "Untitled";
-                    sync();
-                };
-                nameInput.onkeydown = (e) => { if (e.key === "Enter") nameInput.blur(); };
-                header.appendChild(nameInput);
+				// Header
+				const header = document.createElement('div');
+				header.className = 'kanban-header';
+				const nameInput = document.createElement('input');
+				nameInput.value = col.name;
+				nameInput.onblur = () => {
+					board[colIdx].name = nameInput.value.trim() || "Untitled";
+					sync();
+				};
+				nameInput.onkeydown = (e) => { if (e.key === "Enter") nameInput.blur(); };
+				header.appendChild(nameInput);
 
-                if (board.length > 1) {
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove-column-btn';
-                    removeBtn.innerHTML = '&times;';
-                    removeBtn.title = "Remove column";
-                    removeBtn.onclick = () => { board.splice(colIdx, 1); sync(); };
-                    header.insertBefore(removeBtn, nameInput);
-                }
-                column.appendChild(header);
+				if (board.length > 1) {
+					const removeBtn = document.createElement('button');
+					removeBtn.className = 'remove-column-btn';
+					removeBtn.innerHTML = '&times;';
+					removeBtn.title = "Remove column";
+					removeBtn.onclick = () => { board.splice(colIdx, 1); sync(); };
+					header.insertBefore(removeBtn, nameInput);
+				}
+				column.appendChild(header);
 
-                // Card list
-                const list = document.createElement('div');
-                list.className = 'kanban-list';
-                list.ondragover = (e) => {
-                    e.preventDefault();
-                    // Find all cards in the list
-                    const cards = Array.from(list.children).filter(
-                        el => el.classList && el.classList.contains('kanban-card')
-                    );
-                    let insertIdx = cards.length;
-                    let found = false;
+				// Card list
+				const list = document.createElement('div');
+				list.className = 'kanban-list';
+				list.ondragover = (e) => {
+					e.preventDefault();
+					// Find all cards in the list
+					const cards = Array.from(list.children).filter(
+						el => el.classList && el.classList.contains('kanban-card')
+					);
+					let insertIdx = cards.length;
+					let found = false;
 
-                    // Find where the mouse is relative to each card
-                    for (let i = 0; i < cards.length; ++i) {
-                        const rect = cards[i].getBoundingClientRect();
-                        if (e.clientY < rect.top + rect.height / 2) {
-                            insertIdx = i;
-                            found = true;
-                            break;
-                        }
-                    }
+					// Find where the mouse is relative to each card
+					for (let i = 0; i < cards.length; ++i) {
+						const rect = cards[i].getBoundingClientRect();
+						if (e.clientY < rect.top + rect.height / 2) {
+							insertIdx = i;
+							found = true;
+							break;
+						}
+					}
 
-                    // Remove existing placeholder if not in the right spot
-                    const children = Array.from(list.children);
-                    const existing = list.querySelector('.kanban-placeholder');
-                    if (!existing || children.indexOf(existing) !== insertIdx) {
-                        removePlaceholders();
-                        const placeholder = document.createElement('div');
-                        placeholder.className = 'kanban-placeholder';
-                        placeholder.style.height = '2.5em';
-                        placeholder.style.background = '#e0e0e0';
-                        placeholder.style.borderRadius = '5px';
-                        placeholder.style.marginBottom = '0.5em';
-                        placeholder.style.border = '2px dashed #bbb';
-                        placeholder.style.opacity = '0.7';
-                        if (insertIdx >= list.children.length) {
-                            list.appendChild(placeholder);
-                        } else {
-                            list.insertBefore(placeholder, list.children[insertIdx]);
-                        }
-                    }
-                };
-                list.ondrop = (e) => {
-                    e.preventDefault();
-                    const placeholder = list.querySelector('.kanban-placeholder');
-                    let insertIdx = col.cards.length;
-                    if (placeholder) {
-                        // Find the index where the placeholder is
-                        const children = Array.from(list.children);
-                        insertIdx = children.indexOf(placeholder);
-                    }
-                    removePlaceholders();
-                    if (!dragData) return;
-                    moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
-                    dragData = null;
-                };
-                list.ondragleave = (e) => {
-                    // Only remove if leaving the list, not entering a child
-                    if (!list.contains(e.relatedTarget)) {
-                        removePlaceholders();
-                    }
-                };
-                list.onclick = function (e) {
-                    // Only close if clicking directly on the list (not a card or its children)
-                    if (e.target === list) {
-                        closeSidePanel();
-                    }
-                };
+					// Remove existing placeholder if not in the right spot
+					const children = Array.from(list.children);
+					const existing = list.querySelector('.kanban-placeholder');
+					if (!existing || children.indexOf(existing) !== insertIdx) {
+						removePlaceholders();
+						const placeholder = document.createElement('div');
+						placeholder.className = 'kanban-placeholder';
+						placeholder.style.height = '2.5em';
+						placeholder.style.background = '#e0e0e0';
+						placeholder.style.borderRadius = '5px';
+						placeholder.style.marginBottom = '0.5em';
+						placeholder.style.border = '2px dashed #bbb';
+						placeholder.style.opacity = '0.7';
+						if (insertIdx >= list.children.length) {
+							list.appendChild(placeholder);
+						} else {
+							list.insertBefore(placeholder, list.children[insertIdx]);
+						}
+					}
+				};
+				list.ondrop = (e) => {
+					e.preventDefault();
+					const placeholder = list.querySelector('.kanban-placeholder');
+					let insertIdx = col.cards.length;
+					if (placeholder) {
+						// Find the index where the placeholder is
+						const children = Array.from(list.children);
+						insertIdx = children.indexOf(placeholder);
+					}
+					removePlaceholders();
+					if (!dragData) return;
+					moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
+					dragData = null;
+				};
+				list.ondragleave = (e) => {
+					// Only remove if leaving the list, not entering a child
+					if (!list.contains(e.relatedTarget)) {
+						removePlaceholders();
+					}
+				};
+				list.onclick = function (e) {
+					// Only close if clicking directly on the list (not a card or its children)
+					if (e.target === list) {
+						closeSidePanel();
+					}
+				};
 
-                col.cards.forEach((card, cardIdx) => {
-                    if (typeof card === "string") card = board[colIdx].cards[cardIdx] = { name: card, weight: "", desc: "", due: "" };
-                    const div = document.createElement('div');
-                    div.className = 'kanban-card';
-                    div.draggable = true;
-                    div.tabIndex = 0;
+				col.cards.forEach((card, cardIdx) => {
+					if (typeof card === "string") card = board[colIdx].cards[cardIdx] = { name: card, weight: "", desc: "", due: "" };
+					const div = document.createElement('div');
+					div.className = 'kanban-card';
+					div.draggable = true;
+					div.tabIndex = 0;
 
-                    div.onclick = (e) => {
-                        if (e.target.classList.contains('trash-icon')) return;
-                        focusSidePanelName = false;
-                        showSidePanel(colIdx, cardIdx);
-                    };
+					div.onclick = (e) => {
+						if (e.target.classList.contains('trash-icon')) return;
+						focusSidePanelName = false;
+						showSidePanel(colIdx, cardIdx);
+					};
 
-                    // Card main info
-                    const cardMain = document.createElement('div');
-                    cardMain.style.display = "flex";
-                    cardMain.style.justifyContent = "space-between";
-                    cardMain.style.alignItems = "center";
+					// Card main info
+					const cardMain = document.createElement('div');
+					cardMain.style.display = "flex";
+					cardMain.style.justifyContent = "space-between";
+					cardMain.style.alignItems = "center";
 
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = card.name || "(No name)";
-                    nameSpan.style.fontWeight = "bold";
-                    cardMain.appendChild(nameSpan);
+					const nameSpan = document.createElement('span');
+					nameSpan.textContent = card.name || "(No name)";
+					nameSpan.style.fontWeight = "bold";
+					cardMain.appendChild(nameSpan);
 
-                    // Trash icon (modern/minimalist, lighter red)
-                    const trash = document.createElement('span');
-                    trash.innerHTML = `<i class="fa-regular fa-trash-can" style="color:#ef5350; font-size: 1.3em; cursor:pointer;"></i>`;
-                    trash.title = "Delete card";
-                    trash.onclick = (e) => {
-                        e.stopPropagation();
-                        board[colIdx].cards.splice(cardIdx, 1);
-                        sync();
-                        render();
-                    };
-                    cardMain.appendChild(trash);
+					// Trash icon (modern/minimalist, lighter red)
+					const trash = document.createElement('span');
+					trash.innerHTML = `<i class="fa-regular fa-trash-can" style="color:#ef5350; font-size: 1.3em; cursor:pointer;"></i>`;
+					trash.title = "Delete card";
+					trash.onclick = (e) => {
+						e.stopPropagation();
+						board[colIdx].cards.splice(cardIdx, 1);
+						sync();
+						render();
+					};
+					cardMain.appendChild(trash);
 
-                    div.appendChild(cardMain);
+					div.appendChild(cardMain);
 
-                    // Card details (weight, due)
-                    const details = document.createElement('div');
-                    details.style.fontSize = "0.95em";
-                    details.style.color = "#666";
-                    details.style.marginTop = "0.3em";
-                    if (card.weight) {
-                        const w = document.createElement('span');
-                        w.textContent = "⚖️ " + card.weight;
-                        w.style.marginRight = "0.7em";
-                        details.appendChild(w);
-                    }
-                    if (card.due) {
-                        const d = document.createElement('span');
-                        d.textContent = "⏰ " + (card.due.length > 16 ? card.due.replace("T", " ") : card.due);
-                        details.appendChild(d);
-                    }
-                    if (card.weight || card.due) div.appendChild(details);
+					// Card details (weight, due)
+					const details = document.createElement('div');
+					details.style.fontSize = "0.95em";
+					details.style.color = "#666";
+					details.style.marginTop = "0.3em";
+					if (card.weight) {
+						const w = document.createElement('span');
+						w.textContent = "⚖️ " + card.weight;
+						w.style.marginRight = "0.7em";
+						details.appendChild(w);
+					}
+					if (card.due) {
+						const d = document.createElement('span');
+						d.textContent = "⏰ " + (card.due.length > 16 ? card.due.replace("T", " ") : card.due);
+						details.appendChild(d);
+					}
+					if (card.weight || card.due) div.appendChild(details);
 
-                    div.title = card.desc || "";
+					div.title = card.desc || "";
 
-                    // Drag logic
-                    div.ondragstart = (e) => {
-                        dragData = { colIdx, cardIdx };
-                        e.dataTransfer.effectAllowed = "move";
-                        setTimeout(() => div.classList.add('dragging'), 0);
-                    };
-                    div.ondragend = (e) => {
-                        dragData = null;
-                        div.classList.remove('dragging');
-                        removePlaceholders();
-                    };
-                    div.ondragover = (e) => {
-                        e.preventDefault();
-                        const rect = div.getBoundingClientRect();
-                        const offset = e.clientY - rect.top;
-                        let insertBefore = offset < rect.height / 2;
+					// Drag logic
+					div.ondragstart = (e) => {
+						dragData = { colIdx, cardIdx };
+						e.dataTransfer.effectAllowed = "move";
+						setTimeout(() => div.classList.add('dragging'), 0);
+					};
+					div.ondragend = (e) => {
+						dragData = null;
+						div.classList.remove('dragging');
+						removePlaceholders();
+					};
+					div.ondragover = (e) => {
+						e.preventDefault();
+						const rect = div.getBoundingClientRect();
+						const offset = e.clientY - rect.top;
+						let insertBefore = offset < rect.height / 2;
 
-                        // Find the current placeholder and its position
-                        const siblings = Array.from(div.parentNode.children);
-                        const existing = siblings.find(el => el.classList && el.classList.contains('kanban-placeholder'));
+						// Find the current placeholder and its position
+						const siblings = Array.from(div.parentNode.children);
+						const existing = siblings.find(el => el.classList && el.classList.contains('kanban-placeholder'));
 
-                        // Determine where the placeholder should be
-                        let shouldBeBefore = insertBefore ? div : div.nextSibling;
+						// Determine where the placeholder should be
+						let shouldBeBefore = insertBefore ? div : div.nextSibling;
 
-                        // Only move the placeholder if it's not already in the right place
-                        if (!existing || existing !== shouldBeBefore) {
-                            removePlaceholders();
-                            let placeholder = document.createElement('div');
-                            placeholder.className = 'kanban-placeholder';
-                            placeholder.style.height = '2.5em';
-                            placeholder.style.background = '#e0e0e0';
-                            placeholder.style.borderRadius = '5px';
-                            placeholder.style.marginBottom = '0.5em';
-                            placeholder.style.border = '2px dashed #bbb';
-                            placeholder.style.opacity = '0.7';
-                            if (insertBefore) {
-                                div.parentNode.insertBefore(placeholder, div);
-                            } else {
-                                if (div.nextSibling) {
-                                    div.parentNode.insertBefore(placeholder, div.nextSibling);
-                                } else {
-                                    div.parentNode.appendChild(placeholder);
-                                }
-                            }
-                        }
-                    };
-                    div.ondragleave = (e) => {
-                        // Only remove if leaving the card, not entering a child
-                        if (!div.contains(e.relatedTarget)) {
-                            removePlaceholders();
-                        }
-                    };
-                    div.ondrop = (e) => {
-                        e.preventDefault();
-                        removePlaceholders();
-                        if (!dragData) return;
-                        const rect = div.getBoundingClientRect();
-                        const offset = e.clientY - rect.top;
-                        let insertIdx = cardIdx;
-                        if (offset >= rect.height / 2) insertIdx++;
-                        moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
-                        dragData = null;
-                    };
+						// Only move the placeholder if it's not already in the right place
+						if (!existing || existing !== shouldBeBefore) {
+							removePlaceholders();
+							let placeholder = document.createElement('div');
+							placeholder.className = 'kanban-placeholder';
+							placeholder.style.height = '2.5em';
+							placeholder.style.background = '#e0e0e0';
+							placeholder.style.borderRadius = '5px';
+							placeholder.style.marginBottom = '0.5em';
+							placeholder.style.border = '2px dashed #bbb';
+							placeholder.style.opacity = '0.7';
+							if (insertBefore) {
+								div.parentNode.insertBefore(placeholder, div);
+							} else {
+								if (div.nextSibling) {
+									div.parentNode.insertBefore(placeholder, div.nextSibling);
+								} else {
+									div.parentNode.appendChild(placeholder);
+								}
+							}
+						}
+					};
+					div.ondragleave = (e) => {
+						// Only remove if leaving the card, not entering a child
+						if (!div.contains(e.relatedTarget)) {
+							removePlaceholders();
+						}
+					};
+					div.ondrop = (e) => {
+						e.preventDefault();
+						removePlaceholders();
+						if (!dragData) return;
+						const rect = div.getBoundingClientRect();
+						const offset = e.clientY - rect.top;
+						let insertIdx = cardIdx;
+						if (offset >= rect.height / 2) insertIdx++;
+						moveCard(dragData.colIdx, dragData.cardIdx, colIdx, insertIdx);
+						dragData = null;
+					};
 
-                    list.appendChild(div);
-                });
+					list.appendChild(div);
+				});
 
-                column.appendChild(list);
+				column.appendChild(list);
 
-                // Add card button
-                const addBtn = document.createElement('button');
-                addBtn.className = 'kanban-add';
-                addBtn.textContent = "+";
-                addBtn.onclick = () => {
-                    const newCard = { name: "", weight: "", desc: "", due: "" };
-                    board[colIdx].cards.push(newCard);
-                    sync();
-                    focusSidePanelName = true;
-                    showSidePanel(colIdx, board[colIdx].cards.length - 1, true);
-                };
-                header.appendChild(addBtn);
+				// Add card button
+				const addBtn = document.createElement('button');
+				addBtn.className = 'kanban-add';
+				addBtn.textContent = "+";
+				addBtn.onclick = () => {
+					const newCard = { name: "", weight: "", desc: "", due: "" };
+					board[colIdx].cards.push(newCard);
+					sync();
+					focusSidePanelName = true;
+					showSidePanel(colIdx, board[colIdx].cards.length - 1, true);
+				};
+				header.appendChild(addBtn);
 
-                kanban.appendChild(column);
-            });
+				kanban.appendChild(column);
+			});
 
-            // Update side panel if open and a card is selected
-            if (selectedCardCol !== null && selectedCardIdx !== null) {
-                let found = false;
-                const cardRef = board[selectedCardCol] && board[selectedCardCol].cards[selectedCardIdx];
-                if (cardRef) {
-                    for (let c = 0; c < board.length; ++c) {
-                        for (let i = 0; i < board[c].cards.length; ++i) {
-                            if (board[c].cards[i] === cardRef) {
-                                selectedCardCol = c;
-                                selectedCardIdx = i;
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (found) break;
-                    }
-                }
-                if (found) {
-                    showSidePanel(selectedCardCol, selectedCardIdx);
-                } else {
-                    closeSidePanel();
-                }
-            }
+			// Update side panel if open and a card is selected
+			if (selectedCardCol !== null && selectedCardIdx !== null) {
+				let found = false;
+				const cardRef = board[selectedCardCol] && board[selectedCardCol].cards[selectedCardIdx];
+				if (cardRef) {
+					for (let c = 0; c < board.length; ++c) {
+						for (let i = 0; i < board[c].cards.length; ++i) {
+							if (board[c].cards[i] === cardRef) {
+								selectedCardCol = c;
+								selectedCardIdx = i;
+								found = true;
+								break;
+							}
+						}
+						if (found) break;
+					}
+				}
+				if (found) {
+					showSidePanel(selectedCardCol, selectedCardIdx);
+				} else {
+					closeSidePanel();
+				}
+			}
 
-            // Focus the name input of the new column if requested
-            if (focusNewColumn) {
-                focusNewColumn = false;
-                setTimeout(() => {
-                    const kanban = document.getElementById('kanban');
-                    if (kanban) {
-                        const columns = kanban.getElementsByClassName('kanban-column');
-                        if (columns.length > 0) {
-                            const lastCol = columns[columns.length - 1];
-                            const input = lastCol.querySelector('.kanban-header input');
-                            if (input) {
-                                input.focus();
-                                input.select && input.select();
-                            }
-                        }
-                    }
-                }, 0);
-            }
+			// Focus the name input of the new column if requested
+			if (focusNewColumn) {
+				focusNewColumn = false;
+				setTimeout(() => {
+					const kanban = document.getElementById('kanban');
+					if (kanban) {
+						const columns = kanban.getElementsByClassName('kanban-column');
+						if (columns.length > 0) {
+							const lastCol = columns[columns.length - 1];
+							const input = lastCol.querySelector('.kanban-header input');
+							if (input) {
+								input.focus();
+								input.select && input.select();
+							}
+						}
+					}
+				}, 0);
+			}
 
-            const sidebarBtn = document.getElementById('mobile-sidebar-toggle');
-            const sidebar = document.getElementById('mobile-sidebar');
-            if (isMobile) {
-                sidebarBtn.style.display = 'block';
-                sidebar.style.display = 'block';
-            } else {
-                sidebarBtn.style.display = 'none';
-                sidebar.style.display = 'none';
-            }
+			const sidebarBtn = document.getElementById('mobile-sidebar-toggle');
+			const sidebar = document.getElementById('mobile-sidebar');
+			if (isMobile) {
+				sidebarBtn.style.display = 'block';
+				sidebar.style.display = 'block';
+			} else {
+				sidebarBtn.style.display = 'none';
+				sidebar.style.display = 'none';
+			}
 
-            const segments = document.getElementById('kanban-segments');
-            if (segments) {
-                if (isMobile) {
-                    segments.innerHTML = '';
-                    board.forEach((col, idx) => {
-                        const btn = document.createElement('button');
-                        btn.className = 'kanban-segment-btn' + (idx === mobileActiveCol ? ' active' : '');
-                        btn.textContent = col.name;
-                        btn.onclick = () => {
-                            mobileActiveCol = idx;
-                            render();
-                        };
-                        segments.appendChild(btn);
-                    });
-                    segments.style.display = 'flex';
-                } else {
-                    segments.style.display = 'none';
-                }
-            }
-        }
+			const segments = document.getElementById('kanban-segments');
+			if (segments) {
+				if (isMobile) {
+					segments.innerHTML = '';
+					board.forEach((col, idx) => {
+						const btn = document.createElement('button');
+						btn.className = 'kanban-segment-btn' + (idx === mobileActiveCol ? ' active' : '');
+						btn.textContent = col.name;
+						btn.onclick = () => {
+							mobileActiveCol = idx;
+							render();
+						};
+						segments.appendChild(btn);
+					});
+					segments.style.display = 'flex';
+				} else {
+					segments.style.display = 'none';
+				}
+			}
+		}
 
-        function moveCard(fromCol, fromIdx, toCol, toIdx) {
-            if (fromCol === toCol && fromIdx === toIdx) return;
-            const card = board[fromCol].cards[fromIdx];
-            board[fromCol].cards.splice(fromIdx, 1);
-            if (fromCol === toCol && toIdx > fromIdx) toIdx--;
-            board[toCol].cards.splice(toIdx, 0, card);
-            sync();
-        }
+		function moveCard(fromCol, fromIdx, toCol, toIdx) {
+			if (fromCol === toCol && fromIdx === toIdx) return;
+			const card = board[fromCol].cards[fromIdx];
+			board[fromCol].cards.splice(fromIdx, 1);
+			if (fromCol === toCol && toIdx > fromIdx) toIdx--;
+			board[toCol].cards.splice(toIdx, 0, card);
+			sync();
+		}
 
-        function showSidePanel(colIdx, cardIdx, focusFirst = false) {
-            selectedCardCol = colIdx;
-            selectedCardIdx = cardIdx;
-            const card = board[colIdx].cards[cardIdx];
-            const panel = document.getElementById('side-panel');
-            const content = document.getElementById('side-panel-content');
+		function showSidePanel(colIdx, cardIdx, focusFirst = false) {
+			selectedCardCol = colIdx;
+			selectedCardIdx = cardIdx;
+			const card = board[colIdx].cards[cardIdx];
+			const panel = document.getElementById('side-panel');
+			const content = document.getElementById('side-panel-content');
 
-            function renderField(label, value, field, type = "text") {
-                const id = `sp-${field}`;
-                if (type === "textarea") {
-                    return `
+			function renderField(label, value, field, type = "text") {
+				const id = `sp-${field}`;
+				if (type === "textarea") {
+					return `
                 <div class="sp-field">
                     <label for="${id}" class="sp-label">${label}</label>
                     <textarea id="${id}" class="sp-textarea" rows="3" placeholder="Enter ${label.toLowerCase()}">${value || ""}</textarea>
                 </div>
             `;
-                } else {
-                    return `
+				} else {
+					return `
                 <div class="sp-field">
                     <label for="${id}" class="sp-label">${label}</label>
                     <input id="${id}" class="sp-input" type="${type}" value="${value || ""}" placeholder="Enter ${label.toLowerCase()}" />
                 </div>
             `;
-                }
-            }
+				}
+			}
 
-            function renderColumnField() {
-                let options = board.map((col, idx) =>
-                    `<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`
-                ).join("");
-                return `
+			function renderColumnField() {
+				let options = board.map((col, idx) =>
+					`<option value="${idx}"${idx === colIdx ? " selected" : ""}>${col.name}</option>`
+				).join("");
+				return `
             <div class="sp-field">
                 <label for="sp-column" class="sp-label">Column</label>
                 <select id="sp-column" class="sp-select">${options}</select>
             </div>
         `;
-            }
+			}
 
-            // Only one editable name field at the top, styled big
-            content.innerHTML = `
+			// Only one editable name field at the top, styled big
+			content.innerHTML = `
         <input id="sp-name" type="text"
             value="${card.name || ""}"
             placeholder="Card name"
@@ -764,208 +736,208 @@
         ${renderField("Description", card.desc, "desc", "textarea")}
     `;
 
-            panel.style.display = "block";
+			panel.style.display = "block";
 
-            // Live update on blur/change for all fields
-            document.getElementById('sp-name').oninput = function () {
-                card.name = this.value;
-                sync();
-            };
-            document.getElementById('sp-name').onkeydown = function (e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    const next = document.getElementById('sp-column');
-                    if (next) next.focus();
-                }
-            };
+			// Live update on blur/change for all fields
+			document.getElementById('sp-name').oninput = function () {
+				card.name = this.value;
+				sync();
+			};
+			document.getElementById('sp-name').onkeydown = function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const next = document.getElementById('sp-column');
+					if (next) next.focus();
+				}
+			};
 
-            document.getElementById('sp-column').oninput = function () {
-                const newColIdx = parseInt(this.value);
-                if (newColIdx !== colIdx) {
-                    board[colIdx].cards.splice(cardIdx, 1);
-                    board[newColIdx].cards.push(card);
-                    selectedCardCol = newColIdx;
-                    selectedCardIdx = board[newColIdx].cards.length - 1;
-                    sync();
-                    render();
-                    showSidePanel(selectedCardCol, selectedCardIdx);
-                }
-            };
-            document.getElementById('sp-column').onkeydown = function (e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    const next = document.getElementById('sp-weight');
-                    if (next) next.focus();
-                }
-            };
+			document.getElementById('sp-column').oninput = function () {
+				const newColIdx = parseInt(this.value);
+				if (newColIdx !== colIdx) {
+					board[colIdx].cards.splice(cardIdx, 1);
+					board[newColIdx].cards.push(card);
+					selectedCardCol = newColIdx;
+					selectedCardIdx = board[newColIdx].cards.length - 1;
+					sync();
+					render();
+					showSidePanel(selectedCardCol, selectedCardIdx);
+				}
+			};
+			document.getElementById('sp-column').onkeydown = function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const next = document.getElementById('sp-weight');
+					if (next) next.focus();
+				}
+			};
 
-            document.getElementById('sp-weight').oninput = function () {
-                card.weight = this.value;
-                sync();
-            };
-            document.getElementById('sp-weight').onkeydown = function (e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    const next = document.getElementById('sp-due');
-                    if (next) next.focus();
-                }
-            };
+			document.getElementById('sp-weight').oninput = function () {
+				card.weight = this.value;
+				sync();
+			};
+			document.getElementById('sp-weight').onkeydown = function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const next = document.getElementById('sp-due');
+					if (next) next.focus();
+				}
+			};
 
-            document.getElementById('sp-due').oninput = function () {
-                card.due = this.value;
-                sync();
-            };
-            document.getElementById('sp-due').onkeydown = function (e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    const next = document.getElementById('sp-desc');
-                    if (next) next.focus();
-                }
-            };
+			document.getElementById('sp-due').oninput = function () {
+				card.due = this.value;
+				sync();
+			};
+			document.getElementById('sp-due').onkeydown = function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const next = document.getElementById('sp-desc');
+					if (next) next.focus();
+				}
+			};
 
-            document.getElementById('sp-desc').oninput = function () {
-                card.desc = this.value;
-                sync();
-            };
-            document.getElementById('sp-desc').onkeydown = function (e) {
-                if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                }
-            };
+			document.getElementById('sp-desc').oninput = function () {
+				card.desc = this.value;
+				sync();
+			};
+			document.getElementById('sp-desc').onkeydown = function (e) {
+				if (e.key === "Enter" && !e.shiftKey) {
+					e.preventDefault();
+				}
+			};
 
-            // Delete on empty name and blur (optional: uncomment if you want this behavior)
-            // document.getElementById('sp-name').addEventListener('blur', function() {
-            //     if (!this.value.trim()) {
-            //         board[colIdx].cards.splice(cardIdx, 1);
-            //         sync();
-            //         closeSidePanel();
-            //         render();
-            //     }
-            // });
+			// Delete on empty name and blur (optional: uncomment if you want this behavior)
+			// document.getElementById('sp-name').addEventListener('blur', function() {
+			//     if (!this.value.trim()) {
+			//         board[colIdx].cards.splice(cardIdx, 1);
+			//         sync();
+			//         closeSidePanel();
+			//         render();
+			//     }
+			// });
 
-            // Focus the name field when opening the sidebar for a new card
-            if (focusFirst || focusSidePanelName) {
-                focusSidePanelName = false;
-                setTimeout(() => {
-                    const nameInput = document.getElementById('sp-name');
-                    if (nameInput) {
-                        nameInput.focus();
-                        nameInput.select && nameInput.select();
-                    }
-                }, 0);
-            }
-        }
+			// Focus the name field when opening the sidebar for a new card
+			if (focusFirst || focusSidePanelName) {
+				focusSidePanelName = false;
+				setTimeout(() => {
+					const nameInput = document.getElementById('sp-name');
+					if (nameInput) {
+						nameInput.focus();
+						nameInput.select && nameInput.select();
+					}
+				}, 0);
+			}
+		}
 
-        window.editSidePanelField = function (field, event) {
-            // You can implement inline editing here if needed
-            if (event) event.stopPropagation();
-        };
+		window.editSidePanelField = function (field, event) {
+			// You can implement inline editing here if needed
+			if (event) event.stopPropagation();
+		};
 
-        function closeSidePanel() {
-            document.getElementById('side-panel').style.display = "none";
-            selectedCardCol = null;
-            selectedCardIdx = null;
-        }
+		function closeSidePanel() {
+			document.getElementById('side-panel').style.display = "none";
+			selectedCardCol = null;
+			selectedCardIdx = null;
+		}
 
-        function sync() {
-            socket.emit('update_kanban', { id: boardId, board });
-        }
+		function sync() {
+			socket.emit('update_kanban', { id: boardId, board });
+		}
 
-        socket.on('kanban_update', data => {
-            // Save currently selected card (if any)
-            let prevCol = selectedCardCol;
-            let prevIdx = selectedCardIdx;
+		socket.on('kanban_update', data => {
+			// Save currently selected card (if any)
+			let prevCol = selectedCardCol;
+			let prevIdx = selectedCardIdx;
 
-            // Save sidebar focus state
-            let activeField = document.activeElement && document.activeElement.id;
-            let selectionStart = null, selectionEnd = null;
-            if (activeField && activeField.startsWith('sp-')) {
-                selectionStart = document.activeElement.selectionStart;
-                selectionEnd = document.activeElement.selectionEnd;
-            }
+			// Save sidebar focus state
+			let activeField = document.activeElement && document.activeElement.id;
+			let selectionStart = null, selectionEnd = null;
+			if (activeField && activeField.startsWith('sp-')) {
+				selectionStart = document.activeElement.selectionStart;
+				selectionEnd = document.activeElement.selectionEnd;
+			}
 
-            if (Array.isArray(data)) {
-                board = data;
-            } else if (typeof data === "object" && data.todo && data.doing && data.done) {
-                board = [
-                    { name: "To Do", cards: data.todo.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
-                    { name: "Doing", cards: data.doing.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
-                    { name: "Done", cards: data.done.map(n => ({ name: n, weight: "", desc: "", due: "" })) }
-                ];
-            }
+			if (Array.isArray(data)) {
+				board = data;
+			} else if (typeof data === "object" && data.todo && data.doing && data.done) {
+				board = [
+					{ name: "To Do", cards: data.todo.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
+					{ name: "In Progress", cards: data.doing.map(n => ({ name: n, weight: "", desc: "", due: "" })) },
+					{ name: "Done", cards: data.done.map(n => ({ name: n, weight: "", desc: "", due: "" })) }
+				];
+			}
 
-            render();
+			render();
 
-            // Restore sidebar if the card still exists
-            if (
-                prevCol !== null &&
-                prevIdx !== null &&
-                board[prevCol] &&
-                board[prevCol].cards[prevIdx]
-            ) {
-                showSidePanel(prevCol, prevIdx);
+			// Restore sidebar if the card still exists
+			if (
+				prevCol !== null &&
+				prevIdx !== null &&
+				board[prevCol] &&
+				board[prevCol].cards[prevIdx]
+			) {
+				showSidePanel(prevCol, prevIdx);
 
-                // Restore focus and cursor position
-                if (activeField && document.getElementById(activeField)) {
-                    const el = document.getElementById(activeField);
-                    el.focus();
-                    if (selectionStart !== null && selectionEnd !== null && el.setSelectionRange) {
-                        el.setSelectionRange(selectionStart, selectionEnd);
-                    }
-                }
-            }
-        });
-        socket.emit('join_kanban', boardId);
-        render();
+				// Restore focus and cursor position
+				if (activeField && document.getElementById(activeField)) {
+					const el = document.getElementById(activeField);
+					el.focus();
+					if (selectionStart !== null && selectionEnd !== null && el.setSelectionRange) {
+						el.setSelectionRange(selectionStart, selectionEnd);
+					}
+				}
+			}
+		});
+		socket.emit('join_kanban', boardId);
+		render();
 
-        document.addEventListener('keydown', function (e) {
-            const panel = document.getElementById('side-panel');
-            if (panel && panel.style.display === "block" && e.key === "Escape") {
-                closeSidePanel();
-            }
-        });
+		document.addEventListener('keydown', function (e) {
+			const panel = document.getElementById('side-panel');
+			if (panel && panel.style.display === "block" && e.key === "Escape") {
+				closeSidePanel();
+			}
+		});
 
-        // Move the close button logic to use the new id
-        document.getElementById('side-panel-close').onclick = closeSidePanel;
+		// Move the close button logic to use the new id
+		document.getElementById('side-panel-close').onclick = closeSidePanel;
 
-        // Mobile sidebar toggle
-        document.getElementById('mobile-sidebar-toggle').onclick = function() {
-            const sidebar = document.getElementById('mobile-sidebar');
-            sidebar.classList.toggle('open');
-        };
-        // Optional: close sidebar when clicking outside
-        document.addEventListener('click', function(e) {
-            const sidebar = document.getElementById('mobile-sidebar');
-            const btn = document.getElementById('mobile-sidebar-toggle');
-            if (!sidebar || !btn) return;
-            if (window.innerWidth > 700) return;
-            if (!sidebar.contains(e.target) && e.target !== btn) {
-                sidebar.classList.remove('open');
-            }
-        });
+		// Mobile sidebar toggle
+		document.getElementById('mobile-sidebar-toggle').onclick = function () {
+			const sidebar = document.getElementById('mobile-sidebar');
+			sidebar.classList.toggle('open');
+		};
+		// Optional: close sidebar when clicking outside
+		document.addEventListener('click', function (e) {
+			const sidebar = document.getElementById('mobile-sidebar');
+			const btn = document.getElementById('mobile-sidebar-toggle');
+			if (!sidebar || !btn) return;
+			if (window.innerWidth > 700) return;
+			if (!sidebar.contains(e.target) && e.target !== btn) {
+				sidebar.classList.remove('open');
+			}
+		});
 
-        // Helper to remove all placeholders
-        function removePlaceholders() {
-            document.querySelectorAll('.kanban-placeholder').forEach(el => el.remove());
-        }
+		// Helper to remove all placeholders
+		function removePlaceholders() {
+			document.querySelectorAll('.kanban-placeholder').forEach(el => el.remove());
+		}
 
-        document.addEventListener('click', function (e) {
-            const sidebar = document.getElementById('side-panel');
-            // If sidebar is not open, do nothing
-            if (!sidebar || sidebar.style.display !== "block") return;
+		document.addEventListener('click', function (e) {
+			const sidebar = document.getElementById('side-panel');
+			// If sidebar is not open, do nothing
+			if (!sidebar || sidebar.style.display !== "block") return;
 
-            // If click is inside the sidebar, do nothing
-            if (sidebar.contains(e.target)) return;
+			// If click is inside the sidebar, do nothing
+			if (sidebar.contains(e.target)) return;
 
-            // If click is inside a kanban card, do nothing (let card logic handle it)
-            if (e.target.closest('.kanban-card')) return;
+			// If click is inside a kanban card, do nothing (let card logic handle it)
+			if (e.target.closest('.kanban-card')) return;
 
-            // Otherwise, close the sidebar
-            closeSidePanel();
-        });
+			// Otherwise, close the sidebar
+			closeSidePanel();
+		});
 
-        window.addEventListener('resize', () => render());
-    </script>
+		window.addEventListener('resize', () => render());
+	</script>
 </body>
 
 </html>

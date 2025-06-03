@@ -1,21 +1,41 @@
 <!doctype html>
 <html>
+
 <head>
   <title>Shared Board</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    body { font-family: monospace; margin: 0; background: #f0f0f0; }
+    body {
+      font-family: monospace;
+    }
+
     textarea {
-      width: 100vw; height: 100vh; box-sizing: border-box;
-      font-size: 1em; padding: 1em;
-      border: none; outline: none; resize: none;
+      width: 100vw;
+      height: 100vh;
+      box-sizing: border-box;
+      font-size: 1em;
+      padding: 1em;
+      border: none;
+      outline: none;
+      resize: none;
       /* border: 1px solid #ccc; border-radius: 6px; */
     }
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
-  <textarea id="board" placeholder="Start typing..."></textarea>
+  <div class="titlebar">
+    <span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
+    <div class="header-actions">
+      <button onclick="window.location.href='/board'" title="Shared Board">Board</button>
+      <button onclick="window.location.href='/kanban'" title="Kanban Board">Kanban</button>
+      <button onclick="window.location.href='/todo'" title="Todo List">Todo</button>
+    </div>
+  </div>
+  <div class="content">
+    <textarea id="board" placeholder="Start typing..."></textarea>
+  </div>
   <script>
     const boardId = window.location.pathname.split("/").pop();
     const socket = io();
@@ -32,4 +52,5 @@
     socket.emit('join_shared_board', boardId);
   </script>
 </body>
+
 </html>
