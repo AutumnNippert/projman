@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
   font-family: 'Fira Code', 'Source Code Pro', monospace;
   margin: 0;
   background: #f4f4f9;
@@ -30,7 +31,7 @@ body {
   box-shadow: 0 2px 8px #0002;
   position: relative;
   z-index: 20;
-  height: 5vh;
+  height: 2em;
 }
 
 .titlebar .header-actions {
@@ -54,4 +55,38 @@ body {
 
 .titlebar .header-actions button:hover {
   background: #666;
+}
+
+footer {
+  /* position: absolute; */
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  margin-top: 2em;
+  color: #888;
+  font-size: 1em;
+  padding: 1.5em 0 1em 0;
+}
+
+
+@media (max-width: 700px) {
+  .titlebar {
+    padding: 0.4em 0.6em;
+    /* font-size: 2em; */
+    min-height: 2.2em;
+    height: auto;
+  }
+
+  .titlebar .header-actions {
+    gap: 0.3em;
+    flex-wrap: wrap;
+  }
+
+  .titlebar .header-actions button {
+    padding: 0.3em 0.7em;
+    border-radius: 4px;
+    min-width: 0;
+    line-height: 1.2;
+    height: 2em;
+  }
 }

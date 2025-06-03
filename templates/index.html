@@ -1,123 +1,147 @@
 <!doctype html>
 <html>
+
 <head>
-  <title>tachyonic</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <style>
-    .landing-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 90vh;
-      gap: 2em;
-    }
-    .landing-title {
-      font-size: 2.5em;
-      font-weight: bold;
-      margin-bottom: 0.2em;
-      letter-spacing: 0.03em;
-      color: #222;
-      text-align: center;
-    }
-    .landing-desc {
-      font-size: 1.2em;
-      color: #555;
-      margin-bottom: 2em;
-      text-align: center;
-      max-width: 500px;
-    }
-    .landing-cards {
-      display: flex;
-      gap: 2em;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .landing-card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 2px 12px #0001;
-      padding: 2em 2.5em;
-      min-width: 220px;
-      max-width: 300px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      transition: transform 0.15s, box-shadow 0.15s;
-      cursor: pointer;
-      border: 1px solid #eee;
-    }
-    .landing-card:hover {
-      transform: translateY(-6px) scale(1.03);
-      box-shadow: 0 6px 24px #0002;
-      border: 1px solid #ccc;
-    }
-    .landing-card i {
-      font-size: 2.2em;
-      margin-bottom: 0.5em;
-      color: #333;
-    }
-    .landing-card-title {
-      font-size: 1.3em;
-      font-weight: bold;
-      margin-bottom: 0.3em;
-      color: #222;
-    }
-    .landing-card-desc {
-      font-size: 1em;
-      color: #666;
-      text-align: center;
-      margin-bottom: 1em;
-    }
-    @media (max-width: 700px) {
-      .landing-cards {
-        flex-direction: column;
-        gap: 1.2em;
-      }
-      .landing-card {
-        min-width: 0;
-        width: 90vw;
-        padding: 1.5em 1em;
-      }
-    }
-  </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>tachyonic</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        .landing-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+            gap: 2em;
+        }
+
+        .landing-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 0.2em;
+            letter-spacing: 0.03em;
+            color: #222;
+            text-align: center;
+        }
+
+        .landing-desc {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 2em;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .landing-cards {
+            display: flex;
+            gap: 2em;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .landing-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px #0001;
+            padding: 2em 2.5em;
+            min-width: 220px;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer;
+            border: 1px solid #eee;
+        }
+
+        .landing-card:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 6px 24px #0002;
+            border: 1px solid #ccc;
+        }
+
+        .landing-card i {
+            font-size: 2.2em;
+            margin-bottom: 0.5em;
+            color: #333;
+        }
+
+        .landing-card-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 0.3em;
+            color: #222;
+        }
+
+        .landing-card-desc {
+            font-size: 1em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 1em;
+        }
+
+        @media (max-width: 1080px) {
+            .landing-cards {
+                /* flex-direction: column; */
+                gap: 1.2em;
+            }
+
+            .landing-card {
+                min-width: 0;
+                width: 90vw;
+                padding: 1.5em 1em;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
-  <div class="titlebar">
-    <span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
-    <div class="header-actions">
-      <button onclick="window.location.href='/board'">Board</button>
-      <button onclick="window.location.href='/kanban'">Kanban</button>
-      <button onclick="window.location.href='/todo'">Todo</button>
+    <div class="titlebar">
+        <span style="cursor:pointer;" onclick="window.location.href='/'">tachyonic</span>
+        <div class="header-actions">
+            <button onclick="window.location.href='/board'">Board</button>
+            <button onclick="window.location.href='/kanban'">Kanban</button>
+            <button onclick="window.location.href='/todo'">Todo</button>
+        </div>
     </div>
-  </div>
-  <div class="landing-container">
-    <div>
-      <div class="landing-title">tachyonic</div>
-      <div class="landing-desc">
-        Welcome! Choose your workspace:<br>
-        <span style="color:#888;font-size:0.95em;">A simple, fast, and collaborative productivity suite.</span>
-      </div>
+    <div class="landing-container">
+        <div>
+            <div class="landing-title">tachyonic</div>
+            <div class="landing-desc">
+                Welcome! Choose your workspace:<br>
+                <span style="color:#888;font-size:0.95em;">A simple, fast, and collaborative project management
+                    suite.</span>
+            </div>
+        </div>
+        <div class="landing-cards">
+            <div class="landing-card" onclick="window.location.href='/board'">
+                <i class="fa-solid fa-chalkboard"></i>
+                <div class="landing-card-title">Shared Board</div>
+                <div class="landing-card-desc">A real-time collaborative text board for brainstorming and notes.</div>
+            </div>
+            <div class="landing-card" onclick="window.location.href='/kanban'">
+                <i class="fa-solid fa-table-columns"></i>
+                <div class="landing-card-title">Kanban Board</div>
+                <div class="landing-card-desc">Organize tasks visually with drag-and-drop columns and cards.</div>
+            </div>
+            <div class="landing-card" onclick="window.location.href='/todo'">
+                <i class="fa-solid fa-list-check"></i>
+                <div class="landing-card-title">Todo List</div>
+                <div class="landing-card-desc">A focused, fast todo list with multiple lists and live sync.</div>
+            </div>
+        </div>
     </div>
-    <div class="landing-cards">
-      <div class="landing-card" onclick="window.location.href='/board'">
-        <i class="fa-solid fa-chalkboard"></i>
-        <div class="landing-card-title">Shared Board</div>
-        <div class="landing-card-desc">A real-time collaborative text board for brainstorming and notes.</div>
-      </div>
-      <div class="landing-card" onclick="window.location.href='/kanban'">
-        <i class="fa-solid fa-table-columns"></i>
-        <div class="landing-card-title">Kanban Board</div>
-        <div class="landing-card-desc">Organize tasks visually with drag-and-drop columns and cards.</div>
-      </div>
-      <div class="landing-card" onclick="window.location.href='/todo'">
-        <i class="fa-solid fa-list-check"></i>
-        <div class="landing-card-title">Todo List</div>
-        <div class="landing-card-desc">A focused, fast todo list with multiple lists and live sync.</div>
-      </div>
-    </div>
-  </div>
+    <!-- Minimalist footer with GitHub link -->
+    <footer>
+        <a href="https://github.com/AutumnNippert/projman" target="_blank"
+            style="color:#888; text-decoration:none; display:inline-flex; align-items:center; gap:0.5em;">
+            <i class="fab fa-github" style="font-size:1.3em;"></i>
+            <span>View on GitHub</span>
+        </a>
+    </footer>
 </body>
+
 </html>

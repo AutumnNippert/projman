@@ -3,6 +3,7 @@
 
 <head>
 	<title>Todo</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 	<link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Source+Code+Pro&display=swap"
 		rel="stylesheet">
@@ -66,14 +67,18 @@
 
 		.search-box {
 			margin-bottom: 1em;
+			display: flex;
+			align-items: center;
+			border: 1px solid #ccc;
+			border-radius: 6px;
+			overflow: hidden;
 		}
 
 		.search-box input {
-			width: 100%;
+			flex: 1;
 			padding: 0.75em;
+			border: none;
 			font-size: 1em;
-			border: 1px solid #ccc;
-			border-radius: 6px;
 			font-family: inherit;
 		}
 
@@ -84,6 +89,7 @@
 			border: 1px solid #ccc;
 			border-radius: 6px;
 			overflow: hidden;
+			background-color: white;
 		}
 
 		#newtodo {
@@ -99,8 +105,8 @@
 			border: none;
 			font-size: 1.5em;
 			width: 48px;
-			height: 100%;
 			cursor: pointer;
+			border-radius: 6px;
 		}
 
 		.add-btn:hover {
@@ -196,16 +202,33 @@
 		}
 
 		@media (max-width: 700px) {
+
+			.titlebar {
+				font-size: 1.2em;
+				padding: 1em 0.7em;
+			}
+
+			.header-actions button {
+				font-size: 1em;
+				padding: 0.5em 1em;
+			}
+
 			.content {
+				font-size: 0.85em;
 				flex-direction: column;
+				height: auto;
+				min-height: 100vh;
 			}
 
 			.sidebar {
 				width: 100vw;
 				flex-direction: row;
 				gap: 0.5em;
-				padding: 0.5em 0.5em 0.5em 0.5em;
+				padding: 0.7em 0.5em 0.7em 0.5em;
 				overflow-x: auto;
+				font-size: 1.1em;
+				border-radius: 0;
+				top: 2em;
 			}
 
 			.tabs {
@@ -214,9 +237,52 @@
 				margin-top: 0;
 			}
 
+			.tab,
+			.add-tab {
+				font-size: 1em;
+				padding: 0.6em 1.1em;
+				min-width: 80px;
+			}
+
 			.main-panel main {
+				padding: 1em 0.5em;
+			}
+
+			.search-box input,
+			#newtodo {
+				font-size: 1.1em;
 				padding: 1em;
 			}
+
+			form {
+				font-size: 1.1em;
+			}
+
+			ul {
+				font-size: 1.1em;
+			}
+
+			li {
+				font-size: 1.1em;
+				padding: 0.8em 0.5em;
+			}
+
+			.todo-item input[type="checkbox"] {
+				width: 1.5em;
+				height: 1.5em;
+			}
+
+			.delete-btn {
+				font-size: 1.1em;
+				padding: 0.4em 0.7em;
+			}
+		}
+
+		/* Optional: make sure the app fills the viewport on mobile Safari */
+		body,
+		html {
+			min-height: 100vh;
+			height: 100%;
 		}
 	</style>
 	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
